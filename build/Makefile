@@ -25,6 +25,14 @@ $(TEST): $(TEST_OBJ)
 %.o: %.c
 	gcc $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
+.PHONY: run_tests
+run_tests: $(TEST)
+	./$(TEST)
+
+.PHONY: check
+check: run_tests
+	valgrind --tool=memcheck ./$(TEST)
+
 .PHONY: clean
 clean:
 	rm -f $(PROG) $(TEST) $(PROG_OBJ) $(TEST_OBJ)
