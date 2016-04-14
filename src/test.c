@@ -1,5 +1,5 @@
 #include <stdio.h>
-
+#include <string.h>
 
 static int test_count = 0, test_error_count = 0;
 
@@ -17,23 +17,32 @@ static void test_error() {
     test_progress("e");
 }
 
-#define TEST_EQ(a, b)\
-    if ((a) == (b)) {\
-        test_success();\
-    } else {\
-        test_error();\
+static void test(int cond) {
+    if (cond) {
+        test_success();
+    } else {
+        test_error();
+    }
+}
+    
+#define TEST_EQ(a, b) test((a) == (b))
+#define TEST_EQ_STR(a, b) test( strcmp((a), (b)) == 0)
+
+    
+#define TEST_BEGIN(name)\
+    int main() {\
+        printf("test = %s\n", name)
+            
+#define TEST_END\
+    printf("\ntests: %d, errors: %d\n", test_count, test_error_count);\
+    return test_error_count == 0 ? 0 : 1;\
     }
 
-#define TEST_BEGIN(name) printf("test = %s\n", name)
-#define TEST_END printf("\ntests: %d, errors: %d\n",\
-                        test_count, test_error_count)
+TEST_BEGIN("scheme");
+TEST_EQ(1, 1);
+TEST_EQ(1, 0);
+TEST_EQ(0, 0);
+TEST_EQ_STR("hej", "hej");
+TEST_EQ_STR("hej", "nej");
+TEST_END;
 
-int main() {
-    TEST_BEGIN("scheme");
-    TEST_EQ(1, 1);
-    TEST_EQ(1, 0);
-    TEST_EQ(0, 0);
-    TEST_END;
-    
-    return 0;
-}
