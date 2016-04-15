@@ -7,10 +7,13 @@ PROG_OBJ = $(patsubst %.c,%.o,$(PROG_SRC))
 TEST_SRC = test.c
 TEST_OBJ = $(patsubst %.c,%.o,$(TEST_SRC))
 
-vpath %.c ../src
-vpath %.h ../include
+SRC_DIR = ../src
+INC_DIR = ../include
 
-CPPFLAGS = -Iinclude
+vpath %.c $(SRC_DIR)
+vpath %.h $(INC_DIR)
+
+CPPFLAGS = -I$(INC_DIR)
 CFLAGS = -ggdb
 
 .PHONY: all
