@@ -27,10 +27,16 @@ $(TEST): $(TEST_OBJ)
 
 .PHONY: run_tests
 run_tests: $(TEST)
+	@echo
+	@echo Running tests...
+	@echo	
 	./$(TEST)
 
 .PHONY: check
 check: run_tests
+	@echo
+	@echo Checking for memory leaks...
+	@echo
 	valgrind --tool=memcheck ./$(TEST)
 
 .PHONY: clean
