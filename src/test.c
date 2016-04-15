@@ -29,27 +29,53 @@ static void test_assert(int cond, const char *file, int line,
         test_error(file, line, a_str, b_str);
     }
 }
-    
+
+static void test_begin(const char *name, void (*setup_func)()) {
+    printf("test = %s\n", name);
+    printf("> running setup\n");
+    (*setup_func)();
+    printf("> running tests\n");
+}
+
+static void test_end(const char *name, void (*teardown_func)()) {
+    printf("> running teardown\n");
+    (*teardown_func)();
+    printf("\n> finished test: %s\n", name);
+    printf("> tests: %d, errors: %d\n", test_count, test_error_count);
+}
+
 #define TEST_EQ(a, b) test_assert((a) == (b), __FILE__, __LINE__, #a, #b)
 #define TEST_EQ_STR(a, b) test_assert( strcmp((a), (b)) == 0,\
                                        __FILE__, __LINE__, #a, #b)
-
     
 #define TEST_BEGIN(name)\
     int main() {\
-        printf("test = %s\n", name)
+        test_begin(#name, name##_setup);
             
-#define TEST_END\
-    printf("\ntests: %d, errors: %d\n", test_count, test_error_count);\
+#define TEST_END(name)\
+    test_end(#name, name##_teardown);\
     return test_error_count == 0 ? 0 : 1;\
     }
 
-TEST_BEGIN("scheme");
+#define TEST_SETUP(name)\
+    void name##_setup()
+
+#define TEST_TEARDOWN(name)\
+    void name##_teardown()
+
+TEST_SETUP(scheme) {
+}
+
+TEST_TEARDOWN(scheme) {
+}
+
+TEST_BEGIN(scheme);
+
 TEST_EQ(1, 1);
 TEST_EQ(1, 0);
 TEST_EQ(0, 0);
 TEST_EQ_STR("hej", "hej");
 TEST_EQ_STR("hej", "nej");
 
-TEST_END;
+TEST_END(scheme);
 
