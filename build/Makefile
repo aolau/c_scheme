@@ -14,7 +14,7 @@ vpath %.c $(SRC_DIR)
 vpath %.h $(INC_DIR)
 
 CPPFLAGS = -I$(INC_DIR)
-CFLAGS = -ggdb
+CFLAGS = -ggdb -std=c99
 
 .PHONY: all
 all: $(PROG) $(TEST)
