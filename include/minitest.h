@@ -16,7 +16,7 @@ static void test_success() {
     test_progress(".");
 }
 
-typedef struct test_info_ {
+typedef struct test_info {
     char *file;
     int line;
     char *a_expr;

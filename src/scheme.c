@@ -3,11 +3,11 @@
 #include <stdlib.h>
 #include <assert.h>
 
-void * scheme_alloc(size_t size) {
+static void * scheme_alloc(size_t size) {
     return malloc(size);
 }
 
-void scheme_free(void *mem) {
+static void scheme_free(void *mem) {
     free(mem);
 }
 
@@ -15,12 +15,12 @@ typedef struct scheme_context {
 
 } scheme_context;
 
-scheme_context * scheme_context_create() {
+static scheme_context * scheme_context_create() {
     scheme_context *c = scheme_alloc(sizeof(scheme_context));
     return c;
 }
 
-void scheme_context_delete(scheme_context *c) {
+static void scheme_context_delete(scheme_context *c) {
     scheme_free(c);
 }
 
@@ -72,7 +72,8 @@ void scheme_obj_delete(scheme_obj *o) {
 }
 
 scheme_obj * scheme_read(const char *code) {
-    return scheme_obj_num(0.0);
+    double val = strtod(code, NULL);
+    return scheme_obj_num(val);
 }
 
 char * scheme_print(scheme_obj *o) {
