@@ -1,6 +1,8 @@
 #ifndef _SCHEME_H_
 #define _SCHEME_H_
 
+#include <stddef.h>
+
 typedef struct scheme_obj scheme_obj;
 typedef struct scheme_context scheme_context;
 

@@ -17,7 +17,7 @@ CPPFLAGS = -I$(INC_DIR)
 CFLAGS = -ggdb -std=c99
 
 .PHONY: all
-all: $(PROG) $(TEST)
+all: $(PROG) $(TEST) TAGS
 
 $(PROG): $(PROG_OBJ)
 	gcc -o $@ $^
@@ -28,11 +28,14 @@ $(TEST): $(TEST_OBJ)
 %.o: %.c
 	gcc $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
+TAGS: $(TEST_SRC) $(PROG_SRC)
+	ctags -e -R $(SRC_DIR) $(INC_DIR)
+
 .PHONY: run_tests
 run_tests: $(TEST)
 	@echo
 	@echo Running tests...
-	@echo	
+	@echo
 	./$(TEST)
 
 .PHONY: check
@@ -44,4 +47,4 @@ check: run_tests
 
 .PHONY: clean
 clean:
-	rm -f $(PROG) $(TEST) $(PROG_OBJ) $(TEST_OBJ)
+	rm -f $(PROG) $(TEST) $(PROG_OBJ) $(TEST_OBJ) TAGS

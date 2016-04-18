@@ -1,3 +1,5 @@
+ #include "scheme.h"
+
 #include <stdlib.h>
 #include <assert.h>
 
@@ -8,7 +10,6 @@ void * scheme_alloc(size_t size) {
 void scheme_free(void *mem) {
     free(mem);
 }
-
 
 typedef struct scheme_context {
 
@@ -31,10 +32,18 @@ void scheme_shutdown(scheme_context *c) {
     scheme_context_delete(c);
 }
 
+struct cons;
+
 typedef struct cons {
+    scheme_obj *car;
+    struct cons *cdr;
 } cons;
 
-enum scheme_obj_type {SYMBOL, STRING, NUM, CONS};
+typedef struct lambda {
+    
+} lambda;
+
+enum scheme_obj_type {SYMBOL, STRING, NUM, CONS, LAMBDA};
 
 typedef struct scheme_obj {
     enum scheme_obj_type type;
@@ -80,8 +89,11 @@ scheme_obj * scheme_eval(scheme_obj *expr) {
         break;
     case CONS:
         break;
+    case LAMBDA:
+        break;
     default:
         assert(0);
     }
     return NULL;
 }
+
