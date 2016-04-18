@@ -4,7 +4,7 @@ TEST = test_$(PROG)
 PROG_SRC = main.c
 PROG_OBJ = $(patsubst %.c,%.o,$(PROG_SRC))
 
-TEST_SRC = test.c
+TEST_SRC = test.c scheme.c
 TEST_OBJ = $(patsubst %.c,%.o,$(TEST_SRC))
 
 SRC_DIR = ../src
