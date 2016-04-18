@@ -33,7 +33,7 @@ TEST_EQ_STR("", scheme_obj_as_string(scheme_read("\"\"")));
 TEST_EQ_STR("a b c", scheme_obj_as_string(scheme_read("\"a b c\"")));
 
 /* read symbols */
-
+TEST_EQ_STR("foo", scheme_obj_as_string(scheme_read("foo")));
 
 
 /* print */

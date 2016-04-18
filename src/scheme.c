@@ -68,7 +68,7 @@ scheme_obj * scheme_obj_num(double num) {
 }
 
 const char * scheme_obj_as_string(scheme_obj *o) {
-    assert(o->type == STRING);
+    assert(o->type == STRING || o->type == SYMBOL);
     return o->value.str;
 }
 
@@ -79,18 +79,25 @@ scheme_obj * scheme_obj_string(const char *str) {
     return o;
 }
 
+scheme_obj * scheme_obj_symbol(const char *str) {
+    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+    o->type = SYMBOL;
+    o->value.str = str;
+    return o;
+}
+
 void scheme_obj_delete(scheme_obj *o) {
     scheme_free(o);
 }
 
-const char * scheme_eat_space(const char *txt) {
-    const char *pos = txt;
+char * scheme_eat_space(char *txt) {
+    char *pos = txt;
     while (*pos == ' ')
         pos++;
     return pos;
 }
 
-char scheme_peek(const char *txt) {
+char scheme_peek(char *txt) {
     return txt[0];
 }
 
@@ -98,12 +105,24 @@ bool scheme_is_digit(char c) {
     return c >= 48 && c < 58;
 }
 
-scheme_obj * scheme_read_num(const char *txt, char **next_char) {
+scheme_obj * scheme_read_num(char *txt, char **next_char) {
     const double num = strtod(txt, next_char);
     return scheme_obj_num(num);
 }
 
-scheme_obj * scheme_read_string(const char *txt, char **next_char) {
+scheme_obj * scheme_read_symbol(char *txt, char **next_char) {
+    int i = 0;
+    while (txt[i] != ' ' && txt[i] != ')')
+        i++;
+
+    char *s = scheme_alloc(sizeof(char) * i + 1);
+    memcpy(s, txt, i);
+    s[i] = '\0';
+
+    return scheme_obj_symbol(s);
+}
+
+scheme_obj * scheme_read_string(char *txt, char **next_char) {
     int i = 1;
     while (txt[i] != '\"')
         i++;
@@ -118,7 +137,7 @@ scheme_obj * scheme_read_string(const char *txt, char **next_char) {
     return scheme_obj_string(s);
 }
 
-scheme_obj * scheme_read(const char *txt) {
+scheme_obj * scheme_read(char *txt) {
     txt = scheme_eat_space(txt);
     scheme_obj *obj = NULL;
     char *next = "";
@@ -131,7 +150,7 @@ scheme_obj * scheme_read(const char *txt) {
     } else if (scheme_is_digit(next_char)) {
         obj = scheme_read_num(txt, &next);
     } else {
-        /* read symbol */
+        obj = scheme_read_symbol(txt, &next);
     }
 
     txt = next;
