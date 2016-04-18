@@ -71,9 +71,43 @@ void scheme_obj_delete(scheme_obj *o) {
     scheme_free(o);
 }
 
-scheme_obj * scheme_read(const char *code) {
-    double val = strtod(code, NULL);
-    return scheme_obj_num(val);
+const char * scheme_eat_space(const char *txt) {
+    const char *pos = txt;
+    while (*pos == ' ')
+        pos++;
+    return pos;
+}
+
+char scheme_peek(const char *txt) {
+    return txt[0];
+}
+
+bool scheme_is_digit(char c) {
+    return c >= 48 && c < 58;
+}
+
+scheme_obj * scheme_read_num(const char *txt, char **next_char) {
+    const double num = strtod(txt, next_char);
+    return scheme_obj_num(num);
+}
+
+scheme_obj * scheme_read(const char *txt) {
+    txt = scheme_eat_space(txt);
+    scheme_obj *obj = NULL;
+    
+    char next_char = scheme_peek(txt);
+    if (next_char == '(') {
+        /* read list */
+    } else if (next_char == '\"') {
+        /* read string */
+    } else if (scheme_is_digit(next_char)) {
+        char *next = "";
+        obj = scheme_read_num(txt, &next);
+        txt = next;
+    } else {
+        /* read symbol */
+    }
+    return obj;
 }
 
 char * scheme_print(scheme_obj *o) {
