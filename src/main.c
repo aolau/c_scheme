@@ -2,7 +2,7 @@
 
 int main() {
     TRACE_INIT(scheme);
-    TRACE("Starting scheme...");
+    TRACE("Starting...");
     
     return 0;
 }
