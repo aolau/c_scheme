@@ -1,12 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-enum scheme_obj_type {SYMBOL, STRING, NUM, CONS};
-
-typedef struct scheme_obj {
-    enum scheme_obj_type type;
-} scheme_obj;
-
 void * scheme_alloc(size_t size) {
     return malloc(size);
 }
@@ -15,8 +9,52 @@ void scheme_free(void *mem) {
     free(mem);
 }
 
-scheme_obj * scheme_obj_create(int val) {
-    scheme_obj * o = scheme_alloc(sizeof(val));
+
+typedef struct scheme_context {
+
+} scheme_context;
+
+scheme_context * scheme_context_create() {
+    scheme_context *c = scheme_alloc(sizeof(scheme_context));
+    return c;
+}
+
+void scheme_context_delete(scheme_context *c) {
+    scheme_free(c);
+}
+
+scheme_context * scheme_init() {
+    return scheme_context_create();
+}
+
+void scheme_shutdown(scheme_context *c) {
+    scheme_context_delete(c);
+}
+
+typedef struct cons {
+} cons;
+
+enum scheme_obj_type {SYMBOL, STRING, NUM, CONS};
+
+typedef struct scheme_obj {
+    enum scheme_obj_type type;
+    union {
+        char * str;
+        double num;
+        cons con;
+    } value;
+} scheme_obj;
+
+double scheme_obj_as_num(scheme_obj *o) {
+    assert(o->type == NUM);
+    
+    return o->value.num;
+}
+
+scheme_obj * scheme_obj_num(double num) {
+    scheme_obj * o = scheme_alloc(sizeof(scheme_obj));
+    o->type = NUM;
+    o->value.num = num;
     return o;
 }
 
@@ -25,7 +63,7 @@ void scheme_obj_delete(scheme_obj *o) {
 }
 
 scheme_obj * scheme_read(const char *code) {
-    return scheme_obj_create(0);
+    return scheme_obj_num(0.0);
 }
 
 char * scheme_print(scheme_obj *o) {
