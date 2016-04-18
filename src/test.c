@@ -28,9 +28,13 @@ TEST_EQ(true, scheme_is_digit('9'));
 TEST_EQ(0.0, scheme_obj_as_num(scheme_read("0.0")));
 TEST_EQ(5.0, scheme_obj_as_num(scheme_read("5.0")));
 
+/* read strings */
+TEST_EQ_STR("", scheme_obj_as_string(scheme_read("\"\"")));
+TEST_EQ_STR("a b c", scheme_obj_as_string(scheme_read("\"a b c\"")));
+
 /* read symbols */
 
-/* read strings */
+
 
 /* print */
 TEST_EQ_STR("", scheme_print(NULL));

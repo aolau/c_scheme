@@ -61,9 +61,13 @@ static void test_end(const char *name, void (*teardown_func)()) {
         test_assert((a) == (b), &i);\
 } while(0)
 
+void test_eq_string(const char *a, const char *b, test_info *i) {
+    test_assert(strcmp(a, b) == 0, i);
+}
+
 #define TEST_EQ_STR(a, b) do {\
         test_info i = {__FILE__, __LINE__, #a, #b}; \
-        test_assert( strcmp((a), (b)) == 0, &i);\
+        test_eq_string((a), (b), &i);\
 } while (0)
 
 #define TEST_BEGIN(name)                        \

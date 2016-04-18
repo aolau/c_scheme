@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 static void * scheme_alloc(size_t size) {
     return malloc(size);
@@ -48,7 +49,7 @@ enum scheme_obj_type {SYMBOL, STRING, NUM, CONS, LAMBDA};
 typedef struct scheme_obj {
     enum scheme_obj_type type;
     union {
-        char * str;
+        const char *str;
         double num;
         cons con;
     } value;
@@ -56,14 +57,25 @@ typedef struct scheme_obj {
 
 double scheme_obj_as_num(scheme_obj *o) {
     assert(o->type == NUM);
-    
     return o->value.num;
 }
 
 scheme_obj * scheme_obj_num(double num) {
-    scheme_obj * o = scheme_alloc(sizeof(scheme_obj));
+    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
     o->type = NUM;
     o->value.num = num;
+    return o;
+}
+
+const char * scheme_obj_as_string(scheme_obj *o) {
+    assert(o->type == STRING);
+    return o->value.str;
+}
+
+scheme_obj * scheme_obj_string(const char *str) {
+    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+    o->type = STRING;
+    o->value.str = str;
     return o;
 }
 
@@ -91,22 +103,38 @@ scheme_obj * scheme_read_num(const char *txt, char **next_char) {
     return scheme_obj_num(num);
 }
 
+scheme_obj * scheme_read_string(const char *txt, char **next_char) {
+    int i = 1;
+    while (txt[i] != '\"')
+        i++;
+    *next_char = &(txt[i + 1]);
+                   
+    const int size = i - 1;
+    
+    char *s = scheme_alloc(sizeof(char) * size + 1);
+    memcpy(s, &(txt[1]), size);
+    s[size] = '\0';
+
+    return scheme_obj_string(s);
+}
+
 scheme_obj * scheme_read(const char *txt) {
     txt = scheme_eat_space(txt);
     scheme_obj *obj = NULL;
+    char *next = "";
     
     char next_char = scheme_peek(txt);
     if (next_char == '(') {
         /* read list */
     } else if (next_char == '\"') {
-        /* read string */
+        obj = scheme_read_string(txt, &next);
     } else if (scheme_is_digit(next_char)) {
-        char *next = "";
         obj = scheme_read_num(txt, &next);
-        txt = next;
     } else {
         /* read symbol */
     }
+
+    txt = next;
     return obj;
 }
 
