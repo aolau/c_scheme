@@ -25,8 +25,8 @@ TEST_EQ(true, scheme_is_digit('0'));
 TEST_EQ(true, scheme_is_digit('9'));
 
 /* read numbers */ 
-TEST_EQ(0.0, scheme_obj_as_num(scheme_read("0.0")));
-TEST_EQ(5.0, scheme_obj_as_num(scheme_read("5.0")));
+TEST_EQ(0, scheme_obj_as_num(scheme_read("0")));
+TEST_EQ(5, scheme_obj_as_num(scheme_read("5")));
 
 /* read strings */
 TEST_EQ_STR("", scheme_obj_as_string(scheme_read("\"\"")));
@@ -37,7 +37,7 @@ TEST_EQ_STR("foo", scheme_obj_as_string(scheme_read("foo")));
 
 
 /* print */
-TEST_EQ_STR("", scheme_print(NULL));
+TEST_EQ_STR("1", scheme_print(scheme_read("1")));
 
 TEST_END(scheme);
 

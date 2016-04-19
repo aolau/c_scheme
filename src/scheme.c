@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 static void * scheme_alloc(size_t size) {
     return malloc(size);
@@ -50,17 +51,17 @@ typedef struct scheme_obj {
     enum scheme_obj_type type;
     union {
         const char *str;
-        double num;
+        long int num;
         cons con;
     } value;
 } scheme_obj;
 
-double scheme_obj_as_num(scheme_obj *o) {
+long int scheme_obj_as_num(scheme_obj *o) {
     assert(o->type == NUM);
     return o->value.num;
 }
 
-scheme_obj * scheme_obj_num(double num) {
+scheme_obj * scheme_obj_num(long int num) {
     scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
     o->type = NUM;
     o->value.num = num;
@@ -106,7 +107,7 @@ bool scheme_is_digit(char c) {
 }
 
 scheme_obj * scheme_read_num(char *txt, char **next_char) {
-    const double num = strtod(txt, next_char);
+    const long int num = strtol(txt, next_char, 10);
     return scheme_obj_num(num);
 }
 
@@ -156,8 +157,35 @@ scheme_obj * scheme_read(char *txt) {
     return obj;
 }
 
-char * scheme_print(scheme_obj *o) {
-    return "";
+char * scheme_print_num(scheme_obj *o, char *buf) {
+    int written = sprintf(buf, "%ld", o->value.num);
+    return buf + written;
+}
+
+char * scheme_print_to_buf(scheme_obj *obj, char *buf) {
+    char *next = buf;
+    
+    switch (obj->type) {
+    case SYMBOL:
+        break;
+    case STRING:
+        break;
+    case NUM:
+        next = scheme_print_num(obj, buf);
+        break;
+    case CONS:
+        break;
+    default:
+        assert(0);
+    }
+    return next;
+}
+
+char * scheme_print(scheme_obj *obj) {
+    static char buf[256];
+    char * next = scheme_print_to_buf(obj, buf);
+    *next = '\0';
+    return buf;
 }
 
 scheme_obj * scheme_eval(scheme_obj *expr) {
@@ -169,8 +197,6 @@ scheme_obj * scheme_eval(scheme_obj *expr) {
     case NUM:
         break;
     case CONS:
-        break;
-    case LAMBDA:
         break;
     default:
         assert(0);

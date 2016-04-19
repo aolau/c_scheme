@@ -10,10 +10,10 @@ typedef struct scheme_context scheme_context;
 scheme_context * scheme_init();
 void scheme_shutdown(scheme_context *c);
 
-double scheme_obj_as_num(scheme_obj *o);
+long int scheme_obj_as_num(scheme_obj *o);
 const char * scheme_obj_as_string(scheme_obj *o);
 
-scheme_obj * scheme_obj_num(double val);
+scheme_obj * scheme_obj_num(long int val);
 
 void scheme_obj_delete(scheme_obj *o);
 
