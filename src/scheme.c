@@ -162,13 +162,32 @@ char * scheme_print_num(scheme_obj *o, char *buf) {
     return buf + written;
 }
 
+char * scheme_print_symbol(scheme_obj *o, char *buf) {
+    assert(o->type == SYMBOL);
+    
+    const char *str = o->value.str;
+    const size_t len = strlen(str);
+    memcpy(buf, str, len);
+
+    return buf + len;
+}
+
+char * scheme_print_string(scheme_obj *o, char *buf) {
+    assert(o->type == STRING);
+
+    int len = sprintf(buf, "\"%s\"", o->value.str);
+    return buf + len;
+}
+
 char * scheme_print_to_buf(scheme_obj *obj, char *buf) {
     char *next = buf;
     
     switch (obj->type) {
     case SYMBOL:
+        next = scheme_print_symbol(obj, buf);
         break;
     case STRING:
+        next = scheme_print_string(obj, buf);
         break;
     case NUM:
         next = scheme_print_num(obj, buf);
@@ -203,4 +222,3 @@ scheme_obj * scheme_eval(scheme_obj *expr) {
     }
     return NULL;
 }
-
