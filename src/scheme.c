@@ -110,29 +110,28 @@ scheme_obj * scheme_read_num(char *txt, char **next_char) {
     return scheme_obj_num(num);
 }
 
+char * scheme_make_string(const char *data, int len) {
+    char *s = scheme_alloc(sizeof(char) * len + 1);
+    memcpy(s, data, len);
+    s[len] = '\0';
+    return s;
+}
+
 scheme_obj * scheme_read_symbol(char *txt, char **next_char) {
-    int i = 0;
-    while (txt[i] != ' ' && txt[i] != ')')
-        i++;
+    size_t span = strcspn(txt, " )");
+    char *s = scheme_make_string(txt, span);
 
-    char *s = scheme_alloc(sizeof(char) * i + 1);
-    memcpy(s, txt, i);
-    s[i] = '\0';
-
+    *next_char = txt + span;
+    
     return scheme_obj_symbol(s);
 }
 
 scheme_obj * scheme_read_string(char *txt, char **next_char) {
-    int i = 1;
-    while (txt[i] != '\"')
-        i++;
-    *next_char = &(txt[i + 1]);
-                   
-    const int size = i - 1;
-    
-    char *s = scheme_alloc(sizeof(char) * size + 1);
-    memcpy(s, &(txt[1]), size);
-    s[size] = '\0';
+    txt = txt + 1;
+    size_t span = strcspn(txt, "\"");
+    char *s = scheme_make_string(txt, span);
+
+    *next_char = txt + span;
 
     return scheme_obj_string(s);
 }
