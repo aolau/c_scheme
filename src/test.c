@@ -35,10 +35,20 @@ TEST_EQ_STR("a b c", scheme_obj_as_string(scheme_read("\"a b c\"")));
 /* read symbols */
 TEST_EQ_STR("foo", scheme_obj_as_string(scheme_read("foo")));
 
-/* print */
+/* read and print */
 TEST_EQ_STR("1", scheme_print(scheme_read("1")));
 TEST_EQ_STR("foo", scheme_print(scheme_read("foo")));
 TEST_EQ_STR("\"foo\"", scheme_print(scheme_read("\"foo\"")));
 
-TEST_END(scheme);
+/* lists */
+TEST_EQ_STR("()", scheme_print(scheme_obj_nil()));
 
+TEST_EQ_STR("(1 2)", scheme_print(scheme_read("(1 2)")));
+TEST_EQ_STR("(foo 1 2)", scheme_print(scheme_read("(foo 1 2)")));
+TEST_EQ_STR("(\"bar\")", scheme_print(scheme_read("(\"bar\")")));
+
+TEST_EQ_STR("(foo (1 2))", scheme_print(scheme_read("(foo (1 2))")));
+TEST_EQ_STR("(foo (1 2 (bar \"baz\")))",
+            scheme_print(scheme_read("(foo (1 2 (bar \"baz\")))")));
+
+TEST_END(scheme);

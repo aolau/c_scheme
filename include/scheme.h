@@ -14,9 +14,9 @@ long int scheme_obj_as_num(scheme_obj *o);
 const char * scheme_obj_as_string(scheme_obj *o);
 
 scheme_obj * scheme_obj_num(long int val);
+scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr);
 
 void scheme_obj_delete(scheme_obj *o);
-
 
 scheme_obj * scheme_read(char *txt);
 
@@ -25,6 +25,10 @@ char * scheme_print(scheme_obj *o);
 scheme_obj * scheme_eval(scheme_obj *expr);
 
 /* private - TODO: Move to other header? */
+scheme_obj * scheme_read_obj(char *txt, char **next);
+char * scheme_print_obj(scheme_obj *obj, char *buf);
+scheme_obj * scheme_obj_nil();
+
 char * scheme_eat_space(char *txt);
 char scheme_peek(char *txt);
 bool scheme_is_digit(char c);
