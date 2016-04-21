@@ -65,6 +65,14 @@ scheme_obj * scheme_obj_nil() {
     return o;
 }
 
+scheme_obj * scheme_car(scheme_obj *cons) {
+    return cons->value.con->car;
+}
+
+scheme_obj * scheme_cdr(scheme_obj *cons) {
+    return cons->value.con->cdr;
+}
+
 scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr) {
     scheme_cons *c = scheme_alloc(sizeof(scheme_cons));
     c->car = car;
@@ -173,6 +181,7 @@ scheme_obj * scheme_read_list_inner(char *txt, char **next) {
     
     if (scheme_peek(txt) == ')') {
         cdr = scheme_obj_nil();
+        *next = txt + 1;
     } else {
         cdr = scheme_read_list_inner(txt, next);
     }
@@ -188,6 +197,7 @@ scheme_obj * scheme_read_list(char *txt, char **next) {
         
     if (scheme_peek(txt) == ')') {
         res = scheme_obj_nil();
+        *next = txt + 1;
     } else {
         res = scheme_read_list_inner(txt, next);
     }
@@ -315,16 +325,100 @@ scheme_obj * scheme_eval_quote(scheme_obj *o) {
     return scheme_eval(o->value.expr);
 }
 
+scheme_obj * scheme_primitive_mul(scheme_obj *args) {
+    scheme_obj *cur = args;
+    unsigned int prod = 1;
+
+    while (! scheme_obj_is_nil(cur)) {
+        prod = prod * scheme_obj_as_num(scheme_car(cur));
+        cur = scheme_cdr(cur);
+    }
+
+    return scheme_obj_num(prod);
+}
+
+scheme_obj * scheme_primitive_add(scheme_obj *args) {
+    scheme_obj *cur = args;
+    long int sum = 0;
+    
+    while(! scheme_obj_is_nil(cur)) {
+        sum += scheme_obj_as_num(scheme_car(cur));
+        cur = scheme_cdr(cur);
+    }
+
+    return scheme_obj_num(sum);
+}
+
+scheme_obj * scheme_primitive_sub(scheme_obj *args) {
+    long int sum = scheme_obj_as_num(scheme_car(args));
+    scheme_obj *cur = scheme_cdr(args);
+    
+    while(! scheme_obj_is_nil(cur)) {
+        sum -= scheme_obj_as_num(scheme_car(cur));
+        cur = scheme_cdr(cur);
+    }
+
+    return scheme_obj_num(sum);
+}
+
+scheme_obj * scheme_fallback_proc(scheme_obj *args) {
+    SHOULD_NEVER_BE_HERE;
+    return scheme_obj_nil();
+}
+
+typedef scheme_obj * (*proc_ptr)(scheme_obj *);
+
+proc_ptr scheme_get_proc(const char *name) {
+    if (strcmp(name, "+") == 0)
+        return scheme_primitive_add;
+    if (strcmp(name, "-") == 0)
+        return scheme_primitive_sub;
+    if (strcmp(name, "*") == 0)
+        return scheme_primitive_mul;
+    
+    return scheme_fallback_proc;
+}
+
+scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args) {
+
+    const char *proc_name = scheme_obj_as_string(proc);
+    return (*scheme_get_proc(proc_name))(args);
+}
+
+scheme_obj * scheme_eval_seq(scheme_obj *seq) {
+    if (scheme_obj_is_nil(seq)) {
+        return scheme_obj_nil();
+    } else {
+        return scheme_obj_cons(scheme_eval(scheme_car(seq)),
+                               scheme_eval_seq(scheme_cdr(seq)));
+    }
+}
+
+scheme_obj * scheme_eval_cons(scheme_obj *o) {
+    scheme_obj *proc = scheme_eval(scheme_car(o));
+    scheme_obj *args = scheme_eval_seq(scheme_cdr(o));
+    
+    return scheme_apply(proc, args);
+}
+
+scheme_obj * scheme_eval_symbol(scheme_obj *name) {
+    /* TODO: Lookup name in environment */
+    return name;
+}
+
 scheme_obj * scheme_eval(scheme_obj *expr) {
     scheme_obj *res = scheme_obj_nil();
     
     switch (expr->type) {
     case SYMBOL:
+        res = scheme_eval_symbol(expr);
+        break;
     case STRING:
     case NUM:
         res = expr;
         break;
     case CONS:
+        res = scheme_eval_cons(expr);
         break;
     case QUOTE:
         res = scheme_eval_quote(expr);

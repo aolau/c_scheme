@@ -3,6 +3,8 @@
 
 static scheme_context *context = 0;
 
+#define SCHEME_REP(expr_) scheme_print(scheme_eval(scheme_read(expr_)))
+
 TEST_SETUP(scheme) {
     context = scheme_init();
 }
@@ -49,6 +51,7 @@ TEST_EQ_STR("(1 2)", scheme_print(scheme_read("(1 2)")));
 TEST_EQ_STR("(foo 1 2)", scheme_print(scheme_read("(foo 1 2)")));
 TEST_EQ_STR("(\"bar\")", scheme_print(scheme_read("(\"bar\")")));
 
+TEST_EQ_STR("((1 2) foo)", scheme_print(scheme_read("((1 2) foo)")));
 TEST_EQ_STR("(foo (1 2))", scheme_print(scheme_read("(foo (1 2))")));
 TEST_EQ_STR("(foo (1 2 (bar \"baz\")))",
             scheme_print(scheme_read("(foo (1 2 (bar \"baz\")))")));
@@ -62,6 +65,19 @@ TEST_EQ_STR("foo", scheme_print(scheme_eval(scheme_read("foo"))));
 TEST_EQ_STR("\"bar\"", scheme_print(scheme_eval(scheme_read("\"bar\""))));
 
 /* quote */
-TEST_EQ_STR("1", scheme_print(scheme_eval(scheme_read("\'1"))));
+TEST_EQ_STR("1", SCHEME_REP("\'1"));
+
+/* primitive operations */
+
+TEST_EQ_STR("5", SCHEME_REP("(+ 1 2 2)"));
+TEST_EQ_STR("5", SCHEME_REP("(+ (+ 1 2) 2)"));
+
+TEST_EQ_STR("5", SCHEME_REP("(- 6 1)"));
+TEST_EQ_STR("5", SCHEME_REP("(+ (- 4 1) 2)"));
+
+TEST_EQ_STR("6", SCHEME_REP("(* 3 2)"));
+TEST_EQ_STR("6", SCHEME_REP("(* (+ 1 2) (- 3 1))"));
+
+
 
 TEST_END(scheme);

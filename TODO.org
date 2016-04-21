@@ -1,17 +1,6 @@
-* Read
-** TODO List
-** TODO Quote
+* Primitive procedures
+* Variable lookup/environment
+* Memory management
+* User defined procedures
 
-* Print
-
-* Eval
-** TODO Simple AST walker
-** TODO Pre-treated
-
-* Context
-** TODO Environment
-** TODO Stats
-
-* REPL
-
-* Garbage collector
+* Macros
