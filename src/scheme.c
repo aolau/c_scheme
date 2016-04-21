@@ -45,7 +45,7 @@ typedef struct lambda {
     
 } lambda;
 
-enum scheme_obj_type {SYMBOL, STRING, NUM, CONS, LAMBDA};
+enum scheme_obj_type {SYMBOL, STRING, NUM, CONS, QUOTE};
 
 typedef struct scheme_obj {
     enum scheme_obj_type type;
@@ -53,6 +53,7 @@ typedef struct scheme_obj {
         const char *str;
         long int num;
         scheme_cons *con;
+        scheme_obj *expr;
     } value;
 } scheme_obj;
 
@@ -94,6 +95,13 @@ scheme_obj * scheme_obj_symbol(const char *str) {
     scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
     o->type = SYMBOL;
     o->value.str = str;
+    return o;
+}
+
+scheme_obj * scheme_obj_quote(scheme_obj *expr) {
+    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+    o->type = QUOTE;
+    o->value.expr = expr;
     return o;
 }
 
@@ -188,6 +196,12 @@ scheme_obj * scheme_read_list(char *txt, char **next) {
 }
 
 
+scheme_obj * scheme_read_quote(char *txt, char **next) {
+    txt++;
+    scheme_obj *expr = scheme_read_obj(txt, next);
+    return scheme_obj_quote(expr);
+}
+
 scheme_obj * scheme_read_obj(char *txt, char **next) {
     assert(*next != NULL);
     
@@ -201,6 +215,8 @@ scheme_obj * scheme_read_obj(char *txt, char **next) {
         obj = scheme_read_string(txt, next);
     } else if (scheme_is_digit(next_char)) {
         obj = scheme_read_num(txt, next);
+    } else if (next_char == '\'') {
+        obj = scheme_read_quote(txt, next);
     } else {
         obj = scheme_read_symbol(txt, next);
     }
@@ -235,6 +251,11 @@ char * scheme_print_string(scheme_obj *o, char *buf) {
     return buf + len;
 }
 
+char * scheme_print_quote(scheme_obj *o, char *buf) {
+    sprintf(buf++, "\'");
+    return scheme_print_obj(o->value.expr, buf);
+}
+
 bool scheme_obj_is_nil(scheme_obj *o) {
     return o->type == CONS && o->value.con == NULL;
 }
@@ -262,9 +283,6 @@ char * scheme_print_obj(scheme_obj *obj, char *buf) {
     char *next = buf;
     
     switch (obj->type) {
-    case SYMBOL:
-        next = scheme_print_symbol(obj, buf);
-        break;
     case STRING:
         next = scheme_print_string(obj, buf);
         break;
@@ -273,6 +291,12 @@ char * scheme_print_obj(scheme_obj *obj, char *buf) {
         break;
     case CONS:
         next = scheme_print_list(obj, buf);
+        break;
+    case SYMBOL:
+        next = scheme_print_symbol(obj, buf);
+        break;
+    case QUOTE:
+        next = scheme_print_quote(obj, buf);
         break;
     default:
         assert(0);
@@ -287,18 +311,26 @@ char * scheme_print(scheme_obj *obj) {
     return buf;
 }
 
+scheme_obj * scheme_eval_quote(scheme_obj *o) {
+    return scheme_eval(o->value.expr);
+}
+
 scheme_obj * scheme_eval(scheme_obj *expr) {
+    scheme_obj *res = scheme_obj_nil();
+    
     switch (expr->type) {
     case SYMBOL:
-        break;
     case STRING:
-        break;
     case NUM:
+        res = expr;
         break;
     case CONS:
+        break;
+    case QUOTE:
+        res = scheme_eval_quote(expr);
         break;
     default:
         assert(0);
     }
-    return NULL;
+    return res;
 }

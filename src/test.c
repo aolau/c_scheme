@@ -40,6 +40,8 @@ TEST_EQ_STR("1", scheme_print(scheme_read("1")));
 TEST_EQ_STR("foo", scheme_print(scheme_read("foo")));
 TEST_EQ_STR("\"foo\"", scheme_print(scheme_read("\"foo\"")));
 
+TEST_EQ_STR("\'1", scheme_print(scheme_read("\'1")));
+
 /* lists */
 TEST_EQ_STR("()", scheme_print(scheme_obj_nil()));
 
@@ -50,5 +52,16 @@ TEST_EQ_STR("(\"bar\")", scheme_print(scheme_read("(\"bar\")")));
 TEST_EQ_STR("(foo (1 2))", scheme_print(scheme_read("(foo (1 2))")));
 TEST_EQ_STR("(foo (1 2 (bar \"baz\")))",
             scheme_print(scheme_read("(foo (1 2 (bar \"baz\")))")));
+
+
+/* eval */
+
+/* self-evaluating */
+TEST_EQ_STR("1", scheme_print(scheme_eval(scheme_read("1"))));
+TEST_EQ_STR("foo", scheme_print(scheme_eval(scheme_read("foo"))));
+TEST_EQ_STR("\"bar\"", scheme_print(scheme_eval(scheme_read("\"bar\""))));
+
+/* quote */
+TEST_EQ_STR("1", scheme_print(scheme_eval(scheme_read("\'1"))));
 
 TEST_END(scheme);
