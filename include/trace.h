@@ -23,4 +23,11 @@ static const char *trace_name = "";
     TRACE_SIMPLE(__VA_ARGS__);                  \
     TRACE_NL
 
+#define ERROR(...)                                              \
+    TRACE_PROMPT;                                               \
+    TRACE_SIMPLE("%s:%s:%d - "                                  \
+                 , __FILE__, __FUNCTION__, __LINE__);           \
+    TRACE_SIMPLE(__VA_ARGS__);                                  \
+    TRACE_NL
+
 #endif /* _TRACE_H_ */

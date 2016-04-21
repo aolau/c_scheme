@@ -1,7 +1,7 @@
 #include "scheme.h"
+#include "check.h"
 
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -106,12 +106,12 @@ scheme_obj * scheme_obj_quote(scheme_obj *expr) {
 }
 
 long int scheme_obj_as_num(scheme_obj *o) {
-    assert(o->type == NUM);
+    CHECK(o->type == NUM);
     return o->value.num;
 }
 
 const char * scheme_obj_as_string(scheme_obj *o) {
-    assert(o->type == STRING || o->type == SYMBOL);
+    CHECK(o->type == STRING || o->type == SYMBOL);
     return o->value.str;
 }
 
@@ -203,7 +203,7 @@ scheme_obj * scheme_read_quote(char *txt, char **next) {
 }
 
 scheme_obj * scheme_read_obj(char *txt, char **next) {
-    assert(*next != NULL);
+    CHECK(*next != NULL);
     
     txt = scheme_eat_space(txt);
     scheme_obj *obj = NULL;
@@ -235,7 +235,7 @@ char * scheme_print_num(scheme_obj *o, char *buf) {
 }
 
 char * scheme_print_symbol(scheme_obj *o, char *buf) {
-    assert(o->type == SYMBOL);
+    CHECK(o->type == SYMBOL);
     
     const char *str = o->value.str;
     const size_t len = strlen(str);
@@ -245,7 +245,7 @@ char * scheme_print_symbol(scheme_obj *o, char *buf) {
 }
 
 char * scheme_print_string(scheme_obj *o, char *buf) {
-    assert(o->type == STRING);
+    CHECK(o->type == STRING);
 
     int len = sprintf(buf, "\"%s\"", o->value.str);
     return buf + len;
@@ -299,7 +299,7 @@ char * scheme_print_obj(scheme_obj *obj, char *buf) {
         next = scheme_print_quote(obj, buf);
         break;
     default:
-        assert(0);
+        SHOULD_NEVER_BE_HERE;
     }
     return next;
 }
@@ -330,7 +330,7 @@ scheme_obj * scheme_eval(scheme_obj *expr) {
         res = scheme_eval_quote(expr);
         break;
     default:
-        assert(0);
+        SHOULD_NEVER_BE_HERE;
     }
     return res;
 }
