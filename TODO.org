@@ -1,6 +1,16 @@
 * Primitive procedures
 * Variable lookup/environment
 * Memory management
+* Conditionals
+* Let
 * User defined procedures
 
+* Other
+** Floating point numbers
+** Number size (long int)
+
 * Macros
+
+* Efficient interpreter
+** Pre-treatment
+** Compile to VM

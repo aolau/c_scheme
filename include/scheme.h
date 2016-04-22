@@ -10,6 +10,9 @@ typedef struct scheme_context scheme_context;
 scheme_context * scheme_init();
 void scheme_shutdown(scheme_context *c);
 
+scheme_obj * scheme_env_create(scheme_obj *names, scheme_obj *values);
+void scheme_context_set_env(scheme_context *c, scheme_obj *e);
+
 long int scheme_obj_as_num(scheme_obj *o);
 const char * scheme_obj_as_string(scheme_obj *o);
 
@@ -22,7 +25,7 @@ scheme_obj * scheme_read(char *txt);
 
 char * scheme_print(scheme_obj *o);
 
-scheme_obj * scheme_eval(scheme_obj *expr);
+scheme_obj * scheme_eval(scheme_obj *expr, scheme_context *ctx);
 
 /* private - TODO: Move to other header? */
 scheme_obj * scheme_read_obj(char *txt, char **next);

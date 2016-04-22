@@ -3,10 +3,14 @@
 
 static scheme_context *context = 0;
 
-#define SCHEME_REP(expr_) scheme_print(scheme_eval(scheme_read(expr_)))
+#define SCHEME_REP(expr_)\
+    scheme_print(scheme_eval(scheme_read(expr_), context))
 
 TEST_SETUP(scheme) {
     context = scheme_init();
+    scheme_context_set_env(context,
+                           scheme_env_create(scheme_read("(a b c)"),
+                                             scheme_read("(1 2 3)")));
 }
 
 TEST_TEARDOWN(scheme) {
@@ -59,13 +63,18 @@ TEST_EQ_STR("(foo (1 2 (bar \"baz\")))",
 
 /* eval */
 
+/* Global variable lookup (a b c) (1 2 3)*/
+TEST_EQ_STR("1", SCHEME_REP("a"));
+TEST_EQ_STR("2", SCHEME_REP("b"));
+TEST_EQ_STR("3", SCHEME_REP("c"));
+
 /* self-evaluating */
-TEST_EQ_STR("1", scheme_print(scheme_eval(scheme_read("1"))));
-TEST_EQ_STR("foo", scheme_print(scheme_eval(scheme_read("foo"))));
-TEST_EQ_STR("\"bar\"", scheme_print(scheme_eval(scheme_read("\"bar\""))));
+TEST_EQ_STR("1", SCHEME_REP("1"));
+TEST_EQ_STR("\"bar\"", SCHEME_REP("\"bar\""));
 
 /* quote */
 TEST_EQ_STR("1", SCHEME_REP("\'1"));
+
 
 /* primitive operations */
 
@@ -78,6 +87,7 @@ TEST_EQ_STR("5", SCHEME_REP("(+ (- 4 1) 2)"));
 TEST_EQ_STR("6", SCHEME_REP("(* 3 2)"));
 TEST_EQ_STR("6", SCHEME_REP("(* (+ 1 2) (- 3 1))"));
 
-
+/* Primitive operations and global variables */
+TEST_EQ_STR("6", SCHEME_REP("(+ (+ a b) c)"));
 
 TEST_END(scheme);

@@ -14,11 +14,14 @@ static void scheme_free(void *mem) {
 }
 
 typedef struct scheme_context {
-
+    scheme_obj *env_top;
 } scheme_context;
+
 
 static scheme_context * scheme_context_create() {
     scheme_context *c = scheme_alloc(sizeof(scheme_context));
+
+    c->env_top = scheme_env_create(NULL, NULL);
     return c;
 }
 
@@ -34,18 +37,18 @@ void scheme_shutdown(scheme_context *c) {
     scheme_context_delete(c);
 }
 
-struct scheme_cons;
+typedef struct scheme_env {
+    scheme_obj *parent_env;
+    scheme_obj *names;
+    scheme_obj *values;
+} scheme_env;
 
 typedef struct scheme_cons {
     scheme_obj *car;
     scheme_obj *cdr;
 } scheme_cons;
 
-typedef struct lambda {
-    
-} lambda;
-
-enum scheme_obj_type {SYMBOL, STRING, NUM, CONS, QUOTE};
+enum scheme_obj_type {SYMBOL, STRING, NUM, CONS, QUOTE, ENV};
 
 typedef struct scheme_obj {
     enum scheme_obj_type type;
@@ -53,9 +56,33 @@ typedef struct scheme_obj {
         const char *str;
         long int num;
         scheme_cons *con;
+        scheme_env env;
         scheme_obj *expr;
     } value;
 } scheme_obj;
+
+scheme_obj * scheme_obj_alloc() {
+    return scheme_alloc(sizeof(scheme_obj));
+}
+
+bool scheme_string_equal(const char *s1, const char *s2) {
+    return strcmp(s1, s2) == 0;
+}
+
+bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
+    if (o1->type != o2->type)
+        return false;
+
+    switch (o1->type) {
+    case SYMBOL:
+    case STRING:
+        return scheme_string_equal(o1->value.str, o2->value.str);
+    default:
+        break;
+    }
+
+    return false;
+}
 
 scheme_obj * scheme_obj_nil() {
     scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
@@ -63,6 +90,10 @@ scheme_obj * scheme_obj_nil() {
     o->value.con = NULL;
     
     return o;
+}
+
+bool scheme_obj_is_nil(scheme_obj *o) {
+    return o->type == CONS && o->value.con == NULL;
 }
 
 scheme_obj * scheme_car(scheme_obj *cons) {
@@ -83,6 +114,43 @@ scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr) {
     o->value.con = c;
     
     return o;
+}
+
+void scheme_context_set_env(scheme_context *c, scheme_obj *e) {
+    c->env_top = e;
+}
+    
+scheme_obj * scheme_env_create(scheme_obj *names, scheme_obj *values) {
+    scheme_obj *o = scheme_obj_alloc();
+
+    o->type = ENV;
+
+    o->value.env.parent_env = scheme_obj_nil();
+    o->value.env.names = names ? names : scheme_obj_nil();
+    o->value.env.values = values ? values : scheme_obj_nil();
+
+    return o;
+}
+
+void scheme_env_add(scheme_env *env, scheme_obj *name, scheme_obj *value) {
+    env->names = scheme_obj_cons(name, env->names);
+    env->values = scheme_obj_cons(value, env->values);
+}
+
+scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name) {
+    scheme_obj *names = env->value.env.names;
+    scheme_obj *values = env->value.env.values;
+
+    while (! scheme_obj_is_nil(names)) {
+        if (scheme_obj_equal(name, scheme_car(names)))
+            return scheme_car(values);
+        
+        names = scheme_cdr(names);
+        values = scheme_cdr(values);
+    }
+
+    TRACE("Lookup failed for: %s", scheme_obj_as_string(name));
+    return scheme_obj_nil();     
 }
 
 scheme_obj * scheme_obj_num(long int num) {
@@ -266,10 +334,6 @@ char * scheme_print_quote(scheme_obj *o, char *buf) {
     return scheme_print_obj(o->value.expr, buf);
 }
 
-bool scheme_obj_is_nil(scheme_obj *o) {
-    return o->type == CONS && o->value.con == NULL;
-}
-
 char * scheme_print_list(scheme_obj *o, char *buf) {
     sprintf(buf, "(");
     buf++;
@@ -321,8 +385,8 @@ char * scheme_print(scheme_obj *obj) {
     return buf;
 }
 
-scheme_obj * scheme_eval_quote(scheme_obj *o) {
-    return scheme_eval(o->value.expr);
+scheme_obj * scheme_eval_quote(scheme_obj *o, scheme_context *ctx) {
+    return scheme_eval(o->value.expr, ctx);
 }
 
 scheme_obj * scheme_primitive_mul(scheme_obj *args) {
@@ -385,43 +449,46 @@ scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args) {
     return (*scheme_get_proc(proc_name))(args);
 }
 
-scheme_obj * scheme_eval_seq(scheme_obj *seq) {
+scheme_obj * scheme_eval_seq(scheme_obj *seq, scheme_context *ctx) {
     if (scheme_obj_is_nil(seq)) {
         return scheme_obj_nil();
     } else {
-        return scheme_obj_cons(scheme_eval(scheme_car(seq)),
-                               scheme_eval_seq(scheme_cdr(seq)));
+        return scheme_obj_cons(scheme_eval(scheme_car(seq), ctx),
+                               scheme_eval_seq(scheme_cdr(seq), ctx));
     }
 }
 
-scheme_obj * scheme_eval_cons(scheme_obj *o) {
-    scheme_obj *proc = scheme_eval(scheme_car(o));
-    scheme_obj *args = scheme_eval_seq(scheme_cdr(o));
+scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
+    scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
+    scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
     
     return scheme_apply(proc, args);
 }
 
-scheme_obj * scheme_eval_symbol(scheme_obj *name) {
-    /* TODO: Lookup name in environment */
-    return name;
+scheme_obj * scheme_eval_symbol(scheme_obj *name, scheme_context *ctx) {
+
+    scheme_obj *value = scheme_env_lookup(ctx->env_top, name);
+    if (scheme_obj_is_nil(value))
+        return name; /* assume primitive proc for now */
+    return value;
 }
 
-scheme_obj * scheme_eval(scheme_obj *expr) {
+scheme_obj * scheme_eval(scheme_obj *expr, scheme_context *ctx) {
     scheme_obj *res = scheme_obj_nil();
     
     switch (expr->type) {
     case SYMBOL:
-        res = scheme_eval_symbol(expr);
+        res = scheme_eval_symbol(expr, ctx);
         break;
     case STRING:
     case NUM:
         res = expr;
         break;
     case CONS:
-        res = scheme_eval_cons(expr);
+        res = scheme_eval_cons(expr, ctx);
         break;
     case QUOTE:
-        res = scheme_eval_quote(expr);
+        res = scheme_eval_quote(expr, ctx);
         break;
     default:
         SHOULD_NEVER_BE_HERE;
