@@ -450,7 +450,6 @@ proc_ptr scheme_get_proc(const char *name) {
 }
 
 scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args) {
-
     const char *proc_name = scheme_obj_as_string(proc);
     return (*scheme_get_proc(proc_name))(args);
 }
@@ -469,11 +468,9 @@ bool scheme_is_true(scheme_obj *value) {
 }
 
 scheme_obj * scheme_if(scheme_obj *args,
-                                 scheme_context *ctx) {
-
+                       scheme_context *ctx) {
     scheme_obj *pred = scheme_car(args);
     scheme_obj *then_clause = scheme_car(scheme_cdr(args));
-
     scheme_obj *else_clause = scheme_car(scheme_cdr(scheme_cdr(args)));
     
     if (scheme_is_true(scheme_eval(pred, ctx)))
@@ -502,7 +499,6 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
 }
 
 scheme_obj * scheme_eval_symbol(scheme_obj *name, scheme_context *ctx) {
-
     scheme_obj *value = scheme_env_lookup(ctx->env_top, name);
     if (scheme_obj_is_nil(value))
         return name; /* assume primitive proc for now */
