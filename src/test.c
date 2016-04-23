@@ -8,9 +8,10 @@ static scheme_context *context = 0;
 
 TEST_SETUP(scheme) {
     context = scheme_init();
-    scheme_context_set_env(context,
-                           scheme_env_create(scheme_read("(+ - * nil if a b c)"),
-                                             scheme_read("(+ - * () if 1 2 3)")));
+    scheme_context_push_env(context,
+                            scheme_env_create(
+                                scheme_read("(+ - * nil if a b c)"),
+                                scheme_read("(+ - * () if 1 2 3)")));
 }
 
 TEST_TEARDOWN(scheme) {
@@ -106,8 +107,7 @@ TEST_EQ_STR("(1 2 3)", SCHEME_REP("(list 1 (+ 1 1) (if 1 3))"));
 
 /* let */
 TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b 2)) (- b a))"));
-#if 0
+TEST_EQ_STR("1", SCHEME_REP("(let ((a (+ 2 1)) (b (+ 1 1))) (- a b))"));
 TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
-#endif
 
 TEST_END(scheme);

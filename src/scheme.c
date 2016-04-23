@@ -18,10 +18,12 @@ typedef struct scheme_context {
 } scheme_context;
 
 
+void scheme_context_push_env(scheme_context *ctx, scheme_obj *env);
+
 static scheme_context * scheme_context_create() {
     scheme_context *c = scheme_alloc(sizeof(scheme_context));
+    scheme_context_push_env(c, NULL);
 
-    c->env_top = scheme_env_create(NULL, NULL);
     return c;
 }
 
@@ -122,10 +124,6 @@ scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr) {
     return o;
 }
 
-void scheme_context_set_env(scheme_context *c, scheme_obj *e) {
-    c->env_top = e;
-}
-    
 scheme_obj * scheme_env_create(scheme_obj *names, scheme_obj *values) {
     scheme_obj *o = scheme_obj_alloc();
 
@@ -144,8 +142,13 @@ void scheme_env_add(scheme_env *env, scheme_obj *name, scheme_obj *value) {
 }
 
 scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name) {
-    scheme_obj *names = env->value.env.names;
-    scheme_obj *values = env->value.env.values;
+    if (scheme_obj_is_nil(env)) {
+        TRACE("Lookup failed for: %s", scheme_obj_as_string(name));
+        return scheme_obj_nil();
+    }
+    
+    scheme_obj *names = scheme_car(env)->value.env.names;
+    scheme_obj *values = scheme_car(env)->value.env.values;
 
     while (! scheme_obj_is_nil(names)) {
         if (scheme_obj_equal(name, scheme_car(names)))
@@ -154,9 +157,7 @@ scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name) {
         names = scheme_cdr(names);
         values = scheme_cdr(values);
     }
-
-    TRACE("Lookup failed for: %s", scheme_obj_as_string(name));
-    return scheme_obj_nil();     
+    return scheme_env_lookup(scheme_cdr(env), name);
 }
 
 scheme_obj * scheme_obj_num(long int num) {
@@ -489,16 +490,27 @@ void scheme_eval_bindings(scheme_obj *bindings, scheme_context *ctx) {
         scheme_obj *name = scheme_car(scheme_car(cur));
         scheme_obj *value = scheme_eval(
             scheme_car(scheme_cdr(scheme_car(cur))), ctx);
-        scheme_env_add(&ctx->env_top->value.env, name, value);
+        scheme_env_add(&(scheme_car(ctx->env_top)->value.env), name, value);
 
         cur = scheme_cdr(cur);
     }
+}
+
+
+void scheme_context_push_env(scheme_context *ctx, scheme_obj *env) {
+    ctx->env_top = scheme_obj_cons(env ? env : scheme_env_create(NULL, NULL),
+                                   ctx->env_top);
+}
+
+void scheme_context_pop_env(scheme_context *ctx) {
+    ctx->env_top = scheme_cdr(ctx->env_top);
 }
 
 scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
     scheme_obj *bindings = scheme_car(args);
     scheme_obj *body = scheme_cdr(args);
 
+    scheme_context_push_env(ctx, NULL);
     scheme_eval_bindings(bindings, ctx);
 
     scheme_obj *cur = body;
@@ -507,6 +519,7 @@ scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
         res = scheme_eval(scheme_car(cur), ctx);
         cur = scheme_cdr(cur);
     }
+    scheme_context_pop_env(ctx);
     return res;
 }
 
