@@ -97,11 +97,17 @@ bool scheme_obj_is_nil(scheme_obj *o) {
 }
 
 scheme_obj * scheme_car(scheme_obj *cons) {
-    return cons->value.con->car;
+    if (scheme_obj_is_nil(cons))
+        return scheme_obj_nil();
+    else
+        return cons->value.con->car;
 }
 
 scheme_obj * scheme_cdr(scheme_obj *cons) {
-    return cons->value.con->cdr;
+    if (scheme_obj_is_nil(cons))
+        return scheme_obj_nil();
+    else
+        return cons->value.con->cdr;
 }
 
 scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr) {
@@ -458,11 +464,35 @@ scheme_obj * scheme_eval_seq(scheme_obj *seq, scheme_context *ctx) {
     }
 }
 
-scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
-    scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
-    scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
+bool scheme_is_true(scheme_obj *value) {
+    return ! scheme_obj_is_nil(value);
+}
+
+scheme_obj * scheme_if(scheme_obj *args,
+                                 scheme_context *ctx) {
+
+    scheme_obj *pred = scheme_car(args);
+    scheme_obj *then_clause = scheme_car(scheme_cdr(args));
+
+    scheme_obj *else_clause = scheme_car(scheme_cdr(scheme_cdr(args)));
     
-    return scheme_apply(proc, args);
+    if (scheme_is_true(scheme_eval(pred, ctx)))
+        return scheme_eval(then_clause, ctx);
+    else
+        return scheme_eval(else_clause, ctx);
+}
+
+scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
+    scheme_obj *res = NULL;
+    
+    if (scheme_string_equal(scheme_obj_as_string(scheme_car(o)), "if")) {
+        res = scheme_if(scheme_cdr(o), ctx);
+    } else {
+        scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
+        scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
+        res = scheme_apply(proc, args);
+    }
+    return res;
 }
 
 scheme_obj * scheme_eval_symbol(scheme_obj *name, scheme_context *ctx) {
@@ -485,7 +515,8 @@ scheme_obj * scheme_eval(scheme_obj *expr, scheme_context *ctx) {
         res = expr;
         break;
     case CONS:
-        res = scheme_eval_cons(expr, ctx);
+        if (! scheme_obj_is_nil(expr))
+            res = scheme_eval_cons(expr, ctx);
         break;
     case QUOTE:
         res = scheme_eval_quote(expr, ctx);

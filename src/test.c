@@ -9,8 +9,8 @@ static scheme_context *context = 0;
 TEST_SETUP(scheme) {
     context = scheme_init();
     scheme_context_set_env(context,
-                           scheme_env_create(scheme_read("(a b c)"),
-                                             scheme_read("(1 2 3)")));
+                           scheme_env_create(scheme_read("(+ - * nil if a b c)"),
+                                             scheme_read("(+ - * () if 1 2 3)")));
 }
 
 TEST_TEARDOWN(scheme) {
@@ -72,6 +72,9 @@ TEST_EQ_STR("3", SCHEME_REP("c"));
 TEST_EQ_STR("1", SCHEME_REP("1"));
 TEST_EQ_STR("\"bar\"", SCHEME_REP("\"bar\""));
 
+/* Empty list */
+TEST_EQ_STR("()", SCHEME_REP("()"));
+            
 /* quote */
 TEST_EQ_STR("1", SCHEME_REP("\'1"));
 
@@ -89,5 +92,11 @@ TEST_EQ_STR("6", SCHEME_REP("(* (+ 1 2) (- 3 1))"));
 
 /* Primitive operations and global variables */
 TEST_EQ_STR("6", SCHEME_REP("(+ (+ a b) c)"));
+
+/* If */
+TEST_EQ_STR("5", SCHEME_REP("(if 1 5 6)"));
+TEST_EQ_STR("6", SCHEME_REP("(if () 5 6)"));
+TEST_EQ_STR("5", SCHEME_REP("(if (if 1 (- 2 1) ()) (+ 2 3) 6)"));
+TEST_EQ_STR("()", SCHEME_REP("(if () 4)"));
 
 TEST_END(scheme);
