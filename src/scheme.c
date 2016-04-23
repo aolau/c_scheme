@@ -482,11 +482,17 @@ scheme_obj * scheme_if(scheme_obj *args,
         return scheme_eval(else_clause, ctx);
 }
 
+scheme_obj * scheme_list(scheme_obj *objs, scheme_context *ctx) {
+    return scheme_eval_seq(objs, ctx);
+}
+
 scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
     scheme_obj *res = NULL;
-    
-    if (scheme_string_equal(scheme_obj_as_string(scheme_car(o)), "if")) {
+    const char *op = scheme_obj_as_string(scheme_car(o));
+    if (scheme_string_equal(op, "if")) {
         res = scheme_if(scheme_cdr(o), ctx);
+    } else if (scheme_string_equal(op, "list")) {
+        res = scheme_list(scheme_cdr(o), ctx);
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
