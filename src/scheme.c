@@ -483,6 +483,33 @@ scheme_obj * scheme_list(scheme_obj *objs, scheme_context *ctx) {
     return scheme_eval_seq(objs, ctx);
 }
 
+void scheme_eval_bindings(scheme_obj *bindings, scheme_context *ctx) {
+    scheme_obj *cur = bindings;
+    while (! scheme_obj_is_nil(cur)) {
+        scheme_obj *name = scheme_car(scheme_car(cur));
+        scheme_obj *value = scheme_eval(
+            scheme_car(scheme_cdr(scheme_car(cur))), ctx);
+        scheme_env_add(&ctx->env_top->value.env, name, value);
+
+        cur = scheme_cdr(cur);
+    }
+}
+
+scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
+    scheme_obj *bindings = scheme_car(args);
+    scheme_obj *body = scheme_cdr(args);
+
+    scheme_eval_bindings(bindings, ctx);
+
+    scheme_obj *cur = body;
+    scheme_obj *res = NULL;
+    while (! scheme_obj_is_nil(cur)) {
+        res = scheme_eval(scheme_car(cur), ctx);
+        cur = scheme_cdr(cur);
+    }
+    return res;
+}
+
 scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
     scheme_obj *res = NULL;
     const char *op = scheme_obj_as_string(scheme_car(o));
@@ -490,6 +517,8 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         res = scheme_if(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "list")) {
         res = scheme_list(scheme_cdr(o), ctx);
+    } else if (scheme_string_equal(op, "let")) {
+        res = scheme_let(scheme_cdr(o), ctx);
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);

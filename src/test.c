@@ -93,7 +93,7 @@ TEST_EQ_STR("6", SCHEME_REP("(* (+ 1 2) (- 3 1))"));
 /* Primitive operations and global variables */
 TEST_EQ_STR("6", SCHEME_REP("(+ (+ a b) c)"));
 
-/* If */
+/* if */
 TEST_EQ_STR("5", SCHEME_REP("(if 1 5 6)"));
 TEST_EQ_STR("6", SCHEME_REP("(if () 5 6)"));
 TEST_EQ_STR("5", SCHEME_REP("(if (if 1 (- 2 1) ()) (+ 2 3) 6)"));
@@ -103,5 +103,11 @@ TEST_EQ_STR("()", SCHEME_REP("(if () 4)"));
 TEST_EQ_STR("()", SCHEME_REP("(list)"));
 TEST_EQ_STR("(1 2 3)", SCHEME_REP("(list 1 2 3)"));
 TEST_EQ_STR("(1 2 3)", SCHEME_REP("(list 1 (+ 1 1) (if 1 3))"));
+
+/* let */
+TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b 2)) (- b a))"));
+#if 0
+TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
+#endif
 
 TEST_END(scheme);
