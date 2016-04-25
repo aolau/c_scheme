@@ -1,3 +1,7 @@
+Eval with GC
+* FIX: Quoted symbols and lists
+* FIX: Let
+
 * Memory management
 * User defined procedures
 

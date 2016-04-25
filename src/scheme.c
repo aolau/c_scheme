@@ -42,6 +42,28 @@ typedef struct scheme_obj {
 
 static scheme_obj static_obj_nil = {.type = NIL};
 
+scheme_obj * scheme_obj_nil() {
+    return &static_obj_nil;
+}
+
+bool scheme_obj_is_nil(scheme_obj *o) {
+    return o == &static_obj_nil;
+}
+
+scheme_obj * scheme_car(scheme_obj *cons) {
+    if (scheme_obj_is_nil(cons))
+        return scheme_obj_nil();
+    else
+        return cons->value.con.car;
+}
+
+scheme_obj * scheme_cdr(scheme_obj *cons) {
+    if (scheme_obj_is_nil(cons))
+        return scheme_obj_nil();
+    else
+        return cons->value.con.cdr;
+}
+
 #define SCHEME_HEAP_SIZE 10000
 
 typedef struct free_obj {
@@ -60,7 +82,7 @@ typedef struct scheme_context {
 } scheme_context;
 
 void scheme_mem_free(scheme_mem *m, scheme_obj *o) {
-    free_obj *fo = (free_obj*)o;
+    free_obj *fo = (free_obj *)o;
     fo->next = m->free_list;
     m->free_list = fo;
 }
@@ -77,20 +99,21 @@ scheme_obj * scheme_mem_alloc(scheme_mem *m) {
 void scheme_obj_set_mark(scheme_obj *o, bool value);
 bool scheme_obj_is_marked(scheme_obj *o);
 
-void scheme_mem_mark_all(scheme_mem *m) {
-    TRACE("Marking all memory...");
+void scheme_mem_unmark_all(scheme_mem *m) {
+    TRACE("Unmarking all memory...");
     for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
-        scheme_obj_set_mark(&(m->heap[i]), true);
+        scheme_obj_set_mark(&(m->heap[i]), false);
     }
 }
 
 void scheme_mem_collect(scheme_mem *m) {
     CHECK(m->free_list == NULL);
 
+    TRACE_NL;
     TRACE("Collecting garbage...");
     int count = 0;
     for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
-        if (scheme_obj_is_marked(&(m->heap[i]))) {
+        if (! scheme_obj_is_marked(&(m->heap[i]))) {
             scheme_mem_free(m, &(m->heap[i]));
             count++;
         }
@@ -102,15 +125,43 @@ bool scheme_mem_no_free(scheme_mem *m) {
     return m->free_list == NULL;
 }
 
-void scheme_mem_mark_unused(scheme_context *ctx) {
+void scheme_obj_mark(scheme_obj *o) {
+    scheme_obj_set_mark(o, true);
+
+    switch (o->type) {
+    case STRING:
+    case NUM:
+    case SYMBOL:
+    case NIL:
+        break;
+    case CONS:
+        scheme_obj_mark(scheme_car(o));
+        scheme_obj_mark(scheme_cdr(o));
+        break;
+    case ENV:
+        scheme_obj_mark(o->value.env.names);
+        scheme_obj_mark(o->value.env.values);
+        break;
+    case QUOTE:
+        scheme_obj_mark(o->value.expr);
+        break;
+    default:
+        SHOULD_NEVER_BE_HERE;
+    }
     
+}
+
+void scheme_mem_mark_used(scheme_context *ctx) {
+    scheme_obj *env = ctx->env_top;
+    scheme_obj_mark(env);
 }
 
 scheme_obj *scheme_mem_get(scheme_context *ctx) {
     scheme_mem *m = &ctx->mem;
     
     if (scheme_mem_no_free(m)) {
-        scheme_mem_mark_unused(ctx);
+        scheme_mem_unmark_all(m);
+        scheme_mem_mark_used(ctx);
         scheme_mem_collect(m);
     }
 
@@ -123,7 +174,7 @@ void scheme_mem_init(scheme_mem *m) {
     TRACE("Initializing heap...");
 
     m->free_list = NULL;
-    scheme_mem_mark_all(m);
+    scheme_mem_unmark_all(m);
     scheme_mem_collect(m);
 }
 
@@ -132,7 +183,8 @@ void scheme_context_push_env(scheme_context *ctx, scheme_obj *env);
 static scheme_context * scheme_context_create() {
     scheme_context *c = scheme_alloc(sizeof(scheme_context));
     scheme_mem_init(&c->mem);
-    
+
+    c->env_top = scheme_obj_nil();
     scheme_context_push_env(c, NULL);
     return c;
 }
@@ -181,27 +233,6 @@ bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
     return false;
 }
 
-scheme_obj * scheme_obj_nil() {
-    return &static_obj_nil;
-}
-
-bool scheme_obj_is_nil(scheme_obj *o) {
-    return o == &static_obj_nil;
-}
-
-scheme_obj * scheme_car(scheme_obj *cons) {
-    if (scheme_obj_is_nil(cons))
-        return scheme_obj_nil();
-    else
-        return cons->value.con.car;
-}
-
-scheme_obj * scheme_cdr(scheme_obj *cons) {
-    if (scheme_obj_is_nil(cons))
-        return scheme_obj_nil();
-    else
-        return cons->value.con.cdr;
-}
 
 scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
                              scheme_context *ctx) {
@@ -220,9 +251,9 @@ scheme_obj * scheme_env_create(scheme_obj *names, scheme_obj *values,
 
     o->type = ENV;
 
-    o->value.env.parent_env = scheme_obj_nil(ctx);
-    o->value.env.names = names ? names : scheme_obj_nil(ctx);
-    o->value.env.values = values ? values : scheme_obj_nil(ctx);
+    o->value.env.parent_env = scheme_obj_nil();
+    o->value.env.names = names ? names : scheme_obj_nil();
+    o->value.env.values = values ? values : scheme_obj_nil();
 
     return o;
 }
@@ -331,7 +362,9 @@ scheme_obj * scheme_read_symbol(char *txt, char **next,
 
     *next = txt + span;
     
-    return scheme_obj_symbol(s, ctx);
+    scheme_obj *o = scheme_obj_symbol(s, ctx);
+    scheme_free(s);
+    return o;
 }
 
 scheme_obj * scheme_read_string(char *txt, char **next,
@@ -342,7 +375,9 @@ scheme_obj * scheme_read_string(char *txt, char **next,
 
     *next = txt + span + 1;
 
-    return scheme_obj_string(s, ctx);
+    scheme_obj *o = scheme_obj_string(s, ctx);
+    free(s);
+    return o;
 }
 
 scheme_obj * scheme_read_list_inner(char *txt, char **next,
@@ -609,8 +644,9 @@ void scheme_eval_bindings(scheme_obj *bindings, scheme_context *ctx) {
 
 
 void scheme_context_push_env(scheme_context *ctx, scheme_obj *env) {
-    ctx->env_top = scheme_obj_cons(env ? env :
-                                   scheme_env_create(NULL, NULL, ctx),
+    ctx->env_top = scheme_obj_cons((env ?
+                                    env :
+                                    scheme_env_create(NULL, NULL, ctx)),
                                    ctx->env_top,
                                    ctx);
 }

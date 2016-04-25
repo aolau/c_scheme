@@ -115,4 +115,12 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b 2)) (- b a))"));
 TEST_EQ_STR("1", SCHEME_REP("(let ((a (+ 2 1)) (b (+ 1 1))) (- a b))"));
 TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 
+/* GC */
+
+
+for (int j = 0; j < 1000; j++) {
+    scheme_eval(scheme_read("(let ((x 1)) x)", context), context);
+}
+
+
 TEST_END(scheme);

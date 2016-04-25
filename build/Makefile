@@ -43,7 +43,7 @@ check: run_tests
 	@echo
 	@echo Checking for memory leaks...
 	@echo
-	valgrind --tool=memcheck ./$(TEST)
+	valgrind --tool=memcheck --leak-check=full ./$(TEST)
 
 .PHONY: clean
 clean:
