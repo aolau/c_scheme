@@ -273,8 +273,8 @@ scheme_obj * scheme_obj_symbol(const char *str, scheme_context *ctx) {
     return o;
 }
 
-scheme_obj * scheme_obj_quote(scheme_obj *expr) {
-    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+scheme_obj * scheme_obj_quote(scheme_obj *expr, scheme_context *ctx) {
+    scheme_obj *o = scheme_obj_alloc(ctx);
     o->type = QUOTE;
     o->value.expr = expr;
     return o;
@@ -325,6 +325,8 @@ char * scheme_make_string(const char *data, int len) {
 scheme_obj * scheme_read_symbol(char *txt, char **next,
                                 scheme_context *ctx) {
     size_t span = strcspn(txt, " )");
+
+    /* FIXME: Memory leak */
     char *s = scheme_make_string(txt, span);
 
     *next = txt + span;
@@ -381,7 +383,7 @@ scheme_obj * scheme_read_list(char *txt, char **next,
 scheme_obj * scheme_read_quote(char *txt, char **next, scheme_context *ctx) {
     txt++;
     scheme_obj *expr = scheme_read_obj(txt, next, ctx);
-    return scheme_obj_quote(expr);
+    return scheme_obj_quote(expr, ctx);
 }
 
 scheme_obj * scheme_read_obj(char *txt, char **next,
