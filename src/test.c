@@ -50,7 +50,7 @@ TEST_EQ_STR("\"foo\"", scheme_print(scheme_read("\"foo\"")));
 TEST_EQ_STR("\'1", scheme_print(scheme_read("\'1")));
 
 /* lists */
-TEST_EQ_STR("()", scheme_print(scheme_obj_nil()));
+TEST_EQ_STR("nil", scheme_print(scheme_obj_nil()));
 
 TEST_EQ_STR("(1 2)", scheme_print(scheme_read("(1 2)")));
 TEST_EQ_STR("(foo 1 2)", scheme_print(scheme_read("(foo 1 2)")));
@@ -74,7 +74,7 @@ TEST_EQ_STR("1", SCHEME_REP("1"));
 TEST_EQ_STR("\"bar\"", SCHEME_REP("\"bar\""));
 
 /* Empty list */
-TEST_EQ_STR("()", SCHEME_REP("()"));
+TEST_EQ_STR("nil", SCHEME_REP("()"));
             
 /* quote */
 TEST_EQ_STR("1", SCHEME_REP("\'1"));
@@ -98,10 +98,10 @@ TEST_EQ_STR("6", SCHEME_REP("(+ (+ a b) c)"));
 TEST_EQ_STR("5", SCHEME_REP("(if 1 5 6)"));
 TEST_EQ_STR("6", SCHEME_REP("(if () 5 6)"));
 TEST_EQ_STR("5", SCHEME_REP("(if (if 1 (- 2 1) ()) (+ 2 3) 6)"));
-TEST_EQ_STR("()", SCHEME_REP("(if () 4)"));
+TEST_EQ_STR("nil", SCHEME_REP("(if () 4)"));
 
 /* list */
-TEST_EQ_STR("()", SCHEME_REP("(list)"));
+TEST_EQ_STR("nil", SCHEME_REP("(list)"));
 TEST_EQ_STR("(1 2 3)", SCHEME_REP("(list 1 2 3)"));
 TEST_EQ_STR("(1 2 3)", SCHEME_REP("(list 1 (+ 1 1) (if 1 3))"));
 

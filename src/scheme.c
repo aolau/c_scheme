@@ -50,14 +50,14 @@ typedef struct scheme_cons {
     scheme_obj *cdr;
 } scheme_cons;
 
-enum scheme_obj_type {SYMBOL, STRING, NUM, CONS, QUOTE, ENV};
+enum scheme_obj_type {NIL, SYMBOL, STRING, NUM, CONS, QUOTE, ENV};
 
 typedef struct scheme_obj {
     enum scheme_obj_type type;
     union {
         const char *str;
         long int num;
-        scheme_cons *con;
+        scheme_cons con;
         scheme_env env;
         scheme_obj *expr;
     } value;
@@ -88,38 +88,35 @@ bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
 
 scheme_obj * scheme_obj_nil() {
     scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
-    o->type = CONS;
-    o->value.con = NULL;
+    o->type = NIL;
     
     return o;
 }
 
 bool scheme_obj_is_nil(scheme_obj *o) {
-    return o->type == CONS && o->value.con == NULL;
+    return o->type == NIL;
 }
 
 scheme_obj * scheme_car(scheme_obj *cons) {
     if (scheme_obj_is_nil(cons))
         return scheme_obj_nil();
     else
-        return cons->value.con->car;
+        return cons->value.con.car;
 }
 
 scheme_obj * scheme_cdr(scheme_obj *cons) {
     if (scheme_obj_is_nil(cons))
         return scheme_obj_nil();
     else
-        return cons->value.con->cdr;
+        return cons->value.con.cdr;
 }
 
 scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr) {
-    scheme_cons *c = scheme_alloc(sizeof(scheme_cons));
-    c->car = car;
-    c->cdr = cdr;
-
     scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+
     o->type = CONS;
-    o->value.con = c;
+    o->value.con.car = car;
+    o->value.con.cdr = cdr;
     
     return o;
 }
@@ -146,7 +143,7 @@ scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name) {
         TRACE("Lookup failed for: %s", scheme_obj_as_string(name));
         return scheme_obj_nil();
     }
-    
+     
     scheme_obj *names = scheme_car(env)->value.env.names;
     scheme_obj *values = scheme_car(env)->value.env.values;
 
@@ -354,10 +351,15 @@ char * scheme_print_list(scheme_obj *o, char *buf) {
             sprintf(buf++, " ");
         }
 
-        buf = scheme_print_obj(cur->value.con->car, buf);
-        cur = cur->value.con->cdr;
+        buf = scheme_print_obj(cur->value.con.car, buf);
+        cur = cur->value.con.cdr;
     }
     return buf;
+}
+
+char * scheme_print_nil(char *buf) {
+    sprintf(buf, "nil");
+    return buf + 3;
 }
 
 char * scheme_print_obj(scheme_obj *obj, char *buf) {
@@ -372,6 +374,9 @@ char * scheme_print_obj(scheme_obj *obj, char *buf) {
         break;
     case CONS:
         next = scheme_print_list(obj, buf);
+        break;
+    case NIL:
+        next = scheme_print_nil(buf);
         break;
     case SYMBOL:
         next = scheme_print_symbol(obj, buf);
@@ -561,6 +566,9 @@ scheme_obj * scheme_eval(scheme_obj *expr, scheme_context *ctx) {
     case CONS:
         if (! scheme_obj_is_nil(expr))
             res = scheme_eval_cons(expr, ctx);
+        break;
+    case NIL:
+        res = scheme_obj_nil();
         break;
     case QUOTE:
         res = scheme_eval_quote(expr, ctx);

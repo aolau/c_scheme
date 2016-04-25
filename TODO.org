@@ -1,8 +1,4 @@
-* Primitive procedures
-* Variable lookup/environment
 * Memory management
-* Conditionals
-* Let
 * User defined procedures
 
 * Other
