@@ -259,15 +259,15 @@ scheme_obj * scheme_obj_num(long int num, scheme_context *ctx) {
     return o;
 }
 
-scheme_obj * scheme_obj_string(const char *str) {
-    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+scheme_obj * scheme_obj_string(const char *str, scheme_context *ctx) {
+    scheme_obj *o = scheme_obj_alloc(ctx);
     o->type = STRING;
     strncpy(o->value.str, str, SCHEME_STRING_SIZE);
     return o;
 }
 
-scheme_obj * scheme_obj_symbol(const char *str) {
-    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+scheme_obj * scheme_obj_symbol(const char *str, scheme_context *ctx) {
+    scheme_obj *o = scheme_obj_alloc(ctx);
     o->type = SYMBOL;
     strncpy(o->value.str, str, SCHEME_STRING_SIZE);
     return o;
@@ -322,23 +322,25 @@ char * scheme_make_string(const char *data, int len) {
     return s;
 }
 
-scheme_obj * scheme_read_symbol(char *txt, char **next) {
+scheme_obj * scheme_read_symbol(char *txt, char **next,
+                                scheme_context *ctx) {
     size_t span = strcspn(txt, " )");
     char *s = scheme_make_string(txt, span);
 
     *next = txt + span;
     
-    return scheme_obj_symbol(s);
+    return scheme_obj_symbol(s, ctx);
 }
 
-scheme_obj * scheme_read_string(char *txt, char **next) {
+scheme_obj * scheme_read_string(char *txt, char **next,
+                                scheme_context *ctx) {
     txt++;
     size_t span = strcspn(txt, "\"");
     char *s = scheme_make_string(txt, span);
 
     *next = txt + span + 1;
 
-    return scheme_obj_string(s);
+    return scheme_obj_string(s, ctx);
 }
 
 scheme_obj * scheme_read_list_inner(char *txt, char **next,
@@ -393,13 +395,13 @@ scheme_obj * scheme_read_obj(char *txt, char **next,
     if (next_char == '(') {
         obj = scheme_read_list(txt, next, ctx);
     } else if (next_char == '\"') {
-        obj = scheme_read_string(txt, next);
+        obj = scheme_read_string(txt, next, ctx);
     } else if (scheme_is_digit(next_char)) {
         obj = scheme_read_num(txt, next, ctx);
     } else if (next_char == '\'') {
         obj = scheme_read_quote(txt, next, ctx);
     } else {
-        obj = scheme_read_symbol(txt, next);
+        obj = scheme_read_symbol(txt, next, ctx);
     }
 
     return obj;
