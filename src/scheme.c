@@ -52,10 +52,12 @@ typedef struct scheme_cons {
 
 enum scheme_obj_type {NIL, SYMBOL, STRING, NUM, CONS, QUOTE, ENV};
 
+#define SCHEME_STRING_SIZE 32
+
 typedef struct scheme_obj {
     enum scheme_obj_type type;
     union {
-        const char *str;
+        char str[SCHEME_STRING_SIZE];
         long int num;
         scheme_cons con;
         scheme_env env;
@@ -167,14 +169,14 @@ scheme_obj * scheme_obj_num(long int num) {
 scheme_obj * scheme_obj_string(const char *str) {
     scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
     o->type = STRING;
-    o->value.str = str;
+    strncpy(o->value.str, str, SCHEME_STRING_SIZE);
     return o;
 }
 
 scheme_obj * scheme_obj_symbol(const char *str) {
     scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
     o->type = SYMBOL;
-    o->value.str = str;
+    strncpy(o->value.str, str, SCHEME_STRING_SIZE);
     return o;
 }
 
