@@ -3,15 +3,20 @@
 
 static scheme_context *context = 0;
 
-#define SCHEME_REP(expr_)\
-    scheme_print(scheme_eval(scheme_read(expr_), context))
+#define SCHEME_R(expr_) scheme_read((expr_), context)
+
+#define SCHEME_RP(expr_) scheme_print(scheme_read((expr_), context))
+
+#define SCHEME_REP(expr_)                                               \
+    scheme_print(scheme_eval(scheme_read((expr_), context), context))
 
 TEST_SETUP(scheme) {
     context = scheme_init();
     scheme_context_push_env(context,
                             scheme_env_create(
-                                scheme_read("(+ - * nil if a b c)"),
-                                scheme_read("(+ - * () if 1 2 3)")));
+                                scheme_read("(+ - * nil if a b c)", context),
+                                scheme_read("(+ - * () if 1 2 3)", context),
+                                context));
 }
 
 TEST_TEARDOWN(scheme) {
@@ -32,34 +37,34 @@ TEST_EQ(true, scheme_is_digit('0'));
 TEST_EQ(true, scheme_is_digit('9'));
 
 /* read numbers */ 
-TEST_EQ(0, scheme_obj_as_num(scheme_read("0")));
-TEST_EQ(5, scheme_obj_as_num(scheme_read("5")));
+TEST_EQ(0, scheme_obj_as_num(SCHEME_R("0")));
+TEST_EQ(5, scheme_obj_as_num(SCHEME_R("5")));
 
 /* read strings */
-TEST_EQ_STR("", scheme_obj_as_string(scheme_read("\"\"")));
-TEST_EQ_STR("a b c", scheme_obj_as_string(scheme_read("\"a b c\"")));
+TEST_EQ_STR("", scheme_obj_as_string(SCHEME_R("\"\"")));
+TEST_EQ_STR("a b c", scheme_obj_as_string(SCHEME_R("\"a b c\"")));
 
 /* read symbols */
-TEST_EQ_STR("foo", scheme_obj_as_string(scheme_read("foo")));
+TEST_EQ_STR("foo", scheme_obj_as_string(SCHEME_R("foo")));
 
 /* read and print */
-TEST_EQ_STR("1", scheme_print(scheme_read("1")));
-TEST_EQ_STR("foo", scheme_print(scheme_read("foo")));
-TEST_EQ_STR("\"foo\"", scheme_print(scheme_read("\"foo\"")));
+TEST_EQ_STR("1", SCHEME_RP("1"));
+TEST_EQ_STR("foo", SCHEME_RP("foo"));
+TEST_EQ_STR("\"foo\"", SCHEME_RP("\"foo\""));
 
-TEST_EQ_STR("\'1", scheme_print(scheme_read("\'1")));
+TEST_EQ_STR("\'1", SCHEME_RP("\'1"));
 
 /* lists */
 TEST_EQ_STR("nil", scheme_print(scheme_obj_nil()));
 
-TEST_EQ_STR("(1 2)", scheme_print(scheme_read("(1 2)")));
-TEST_EQ_STR("(foo 1 2)", scheme_print(scheme_read("(foo 1 2)")));
-TEST_EQ_STR("(\"bar\")", scheme_print(scheme_read("(\"bar\")")));
+TEST_EQ_STR("(1 2)", SCHEME_RP("(1 2)"));
+TEST_EQ_STR("(foo 1 2)", SCHEME_RP("(foo 1 2)"));
+TEST_EQ_STR("(\"bar\")", SCHEME_RP("(\"bar\")"));
 
-TEST_EQ_STR("((1 2) foo)", scheme_print(scheme_read("((1 2) foo)")));
-TEST_EQ_STR("(foo (1 2))", scheme_print(scheme_read("(foo (1 2))")));
+TEST_EQ_STR("((1 2) foo)", SCHEME_RP("((1 2) foo)"));
+TEST_EQ_STR("(foo (1 2))", SCHEME_RP("(foo (1 2))"));
 TEST_EQ_STR("(foo (1 2 (bar \"baz\")))",
-            scheme_print(scheme_read("(foo (1 2 (bar \"baz\")))")));
+            SCHEME_RP("(foo (1 2 (bar \"baz\")))"));
 
 
 /* eval */
