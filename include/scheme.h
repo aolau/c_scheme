@@ -17,7 +17,7 @@ void scheme_context_push_env(scheme_context *c, scheme_obj *e);
 long int scheme_obj_as_num(scheme_obj *o);
 const char * scheme_obj_as_string(scheme_obj *o);
 
-scheme_obj * scheme_obj_num(long int val);
+scheme_obj * scheme_obj_num(long int val, scheme_context *ctx);
 scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
                              scheme_context *ctx);
 

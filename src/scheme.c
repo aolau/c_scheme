@@ -252,8 +252,8 @@ scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name) {
     return scheme_env_lookup(scheme_cdr(env), name);
 }
 
-scheme_obj * scheme_obj_num(long int num) {
-    scheme_obj *o = scheme_alloc(sizeof(scheme_obj));
+scheme_obj * scheme_obj_num(long int num, scheme_context *ctx) {
+    scheme_obj *o = scheme_obj_alloc(ctx);
     o->type = NUM;
     o->value.num = num;
     return o;
@@ -309,9 +309,10 @@ bool scheme_is_digit(char c) {
     return c >= 48 && c < 58;
 }
 
-scheme_obj * scheme_read_num(char *txt, char **next) {
+scheme_obj * scheme_read_num(char *txt, char **next,
+                             scheme_context *ctx) {
     const long int num = strtol(txt, next, 10);
-    return scheme_obj_num(num);
+    return scheme_obj_num(num, ctx);
 }
 
 char * scheme_make_string(const char *data, int len) {
@@ -394,7 +395,7 @@ scheme_obj * scheme_read_obj(char *txt, char **next,
     } else if (next_char == '\"') {
         obj = scheme_read_string(txt, next);
     } else if (scheme_is_digit(next_char)) {
-        obj = scheme_read_num(txt, next);
+        obj = scheme_read_num(txt, next, ctx);
     } else if (next_char == '\'') {
         obj = scheme_read_quote(txt, next, ctx);
     } else {
@@ -499,7 +500,7 @@ scheme_obj * scheme_eval_quote(scheme_obj *o, scheme_context *ctx) {
     return scheme_eval(o->value.expr, ctx);
 }
 
-scheme_obj * scheme_primitive_mul(scheme_obj *args) {
+scheme_obj * scheme_primitive_mul(scheme_obj *args, scheme_context *ctx) {
     scheme_obj *cur = args;
     unsigned int prod = 1;
 
@@ -508,10 +509,10 @@ scheme_obj * scheme_primitive_mul(scheme_obj *args) {
         cur = scheme_cdr(cur);
     }
 
-    return scheme_obj_num(prod);
+    return scheme_obj_num(prod, ctx);
 }
 
-scheme_obj * scheme_primitive_add(scheme_obj *args) {
+scheme_obj * scheme_primitive_add(scheme_obj *args, scheme_context *ctx) {
     scheme_obj *cur = args;
     long int sum = 0;
     
@@ -520,10 +521,10 @@ scheme_obj * scheme_primitive_add(scheme_obj *args) {
         cur = scheme_cdr(cur);
     }
 
-    return scheme_obj_num(sum);
+    return scheme_obj_num(sum, ctx);
 }
 
-scheme_obj * scheme_primitive_sub(scheme_obj *args) {
+scheme_obj * scheme_primitive_sub(scheme_obj *args, scheme_context *ctx) {
     long int sum = scheme_obj_as_num(scheme_car(args));
     scheme_obj *cur = scheme_cdr(args);
     
@@ -532,15 +533,15 @@ scheme_obj * scheme_primitive_sub(scheme_obj *args) {
         cur = scheme_cdr(cur);
     }
 
-    return scheme_obj_num(sum);
+    return scheme_obj_num(sum, ctx);
 }
 
-scheme_obj * scheme_fallback_proc(scheme_obj *args) {
+scheme_obj * scheme_fallback_proc(scheme_obj *args, scheme_context *ctx) {
     SHOULD_NEVER_BE_HERE;
     return scheme_obj_nil();
 }
 
-typedef scheme_obj * (*proc_ptr)(scheme_obj *);
+typedef scheme_obj * (*proc_ptr)(scheme_obj *, scheme_context *);
 
 proc_ptr scheme_get_proc(const char *name) {
     if (strcmp(name, "+") == 0)
@@ -553,9 +554,10 @@ proc_ptr scheme_get_proc(const char *name) {
     return scheme_fallback_proc;
 }
 
-scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args) {
+scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args,
+                          scheme_context *ctx) {
     const char *proc_name = scheme_obj_as_string(proc);
-    return (*scheme_get_proc(proc_name))(args);
+    return (*scheme_get_proc(proc_name))(args, ctx);
 }
 
 scheme_obj * scheme_eval_seq(scheme_obj *seq, scheme_context *ctx) {
@@ -642,7 +644,7 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
-        res = scheme_apply(proc, args);
+        res = scheme_apply(proc, args, ctx);
     }
     return res;
 }
