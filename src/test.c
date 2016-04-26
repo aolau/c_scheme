@@ -5,10 +5,27 @@ static scheme_context *context = 0;
 
 #define SCHEME_R(expr_) scheme_read((expr_), context)
 
-#define SCHEME_RP(expr_) scheme_print(scheme_read((expr_), context))
+char * read_print(char *expr) {
+    scheme_obj *o = scheme_read((expr), context);
+    char *p = scheme_print(o);
+    scheme_obj_mark(o, UNUSED);
+    return p;
+}
 
-#define SCHEME_REP(expr_)                                               \
-    scheme_print(scheme_eval(scheme_read((expr_), context), context))
+char * read_eval_print(char *expr) {
+    scheme_obj *ro = scheme_read(expr, context);
+    scheme_obj *eo = scheme_eval(ro, context);
+    char *p = scheme_print(eo);
+    scheme_obj_mark(ro, UNUSED);
+    scheme_obj_mark(eo, UNUSED);
+    
+    return p;
+}
+
+
+#define SCHEME_RP(expr_) read_print((expr_))
+
+#define SCHEME_REP(expr_)  read_eval_print((expr_))
 
 TEST_SETUP(scheme) {
     context = scheme_init();
@@ -117,10 +134,8 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 
 /* GC */
 
-
-for (int j = 0; j < 1000; j++) {
-    scheme_eval(scheme_read("(let ((x 1)) x)", context), context);
+for (int j = 0; j < 100000; j++) {
+    TEST_EQ_STR("1", SCHEME_REP("(+ 1)"));
 }
-
 
 TEST_END(scheme);

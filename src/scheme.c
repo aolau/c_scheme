@@ -14,7 +14,6 @@ static void scheme_free(void *mem) {
 }
 
 typedef struct scheme_env {
-    scheme_obj *parent_env;
     scheme_obj *names;
     scheme_obj *values;
 } scheme_env;
@@ -24,13 +23,14 @@ typedef struct scheme_cons {
     scheme_obj *cdr;
 } scheme_cons;
 
-enum scheme_obj_type {NIL, SYMBOL, STRING, NUM, CONS, QUOTE, ENV};
+enum scheme_obj_type {NIL = 1, SYMBOL, STRING, NUM, CONS, QUOTE, ENV};
 
+    
 #define SCHEME_STRING_SIZE 32
 
 typedef struct scheme_obj {
     enum scheme_obj_type type;
-    bool mark;
+    scheme_mark_type mark;
     union {
         char str[SCHEME_STRING_SIZE];
         long int num;
@@ -82,6 +82,8 @@ typedef struct scheme_context {
 } scheme_context;
 
 void scheme_mem_free(scheme_mem *m, scheme_obj *o) {
+    memset(o, 0, sizeof(scheme_obj));
+    
     free_obj *fo = (free_obj *)o;
     fo->next = m->free_list;
     m->free_list = fo;
@@ -90,30 +92,38 @@ void scheme_mem_free(scheme_mem *m, scheme_obj *o) {
 scheme_obj * scheme_mem_alloc(scheme_mem *m) {
     free_obj *fo = m->free_list;
     m->free_list = fo->next;
-
-    memset(fo, 0, sizeof(scheme_obj));
     
     return (scheme_obj *)fo;
 }
 
-void scheme_obj_set_mark(scheme_obj *o, bool value);
-bool scheme_obj_is_marked(scheme_obj *o);
 
-void scheme_mem_unmark_all(scheme_mem *m) {
+bool scheme_obj_is_unused(scheme_obj *o);
+bool scheme_obj_is_internal(scheme_obj *o);
+void scheme_obj_set_mark(scheme_obj *o, scheme_mark_type value);
+
+void scheme_mem_unmark_all_(scheme_mem *m, bool force) {
     TRACE("Unmarking all memory...");
     for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
-        scheme_obj_set_mark(&(m->heap[i]), false);
+        if (force || (! scheme_obj_is_internal(&m->heap[i])))
+            scheme_obj_set_mark(&(m->heap[i]), UNUSED);
     }
+}
+
+void scheme_mem_force_unmark_all(scheme_mem *m) {
+    scheme_mem_unmark_all_(m, true);
+}
+
+void scheme_mem_unmark_all(scheme_mem *m) {
+    scheme_mem_unmark_all_(m, false);
 }
 
 void scheme_mem_collect(scheme_mem *m) {
     CHECK(m->free_list == NULL);
 
-    TRACE_NL;
     TRACE("Collecting garbage...");
     int count = 0;
     for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
-        if (! scheme_obj_is_marked(&(m->heap[i]))) {
+        if (scheme_obj_is_unused(&(m->heap[i]))) {
             scheme_mem_free(m, &(m->heap[i]));
             count++;
         }
@@ -125,8 +135,12 @@ bool scheme_mem_no_free(scheme_mem *m) {
     return m->free_list == NULL;
 }
 
-void scheme_obj_mark(scheme_obj *o) {
-    scheme_obj_set_mark(o, true);
+int scheme_obj_mark(scheme_obj *o, scheme_mark_type mark) {
+    int marked = 0;
+    if (! scheme_obj_is_nil(o)) {
+        scheme_obj_set_mark(o, mark);
+        marked++;
+    }
 
     switch (o->type) {
     case STRING:
@@ -135,31 +149,34 @@ void scheme_obj_mark(scheme_obj *o) {
     case NIL:
         break;
     case CONS:
-        scheme_obj_mark(scheme_car(o));
-        scheme_obj_mark(scheme_cdr(o));
+        marked += scheme_obj_mark(scheme_car(o), mark);
+        marked += scheme_obj_mark(scheme_cdr(o), mark);
         break;
     case ENV:
-        scheme_obj_mark(o->value.env.names);
-        scheme_obj_mark(o->value.env.values);
+        marked += scheme_obj_mark(o->value.env.names, mark);
+        marked += scheme_obj_mark(o->value.env.values, mark);
         break;
     case QUOTE:
-        scheme_obj_mark(o->value.expr);
+        marked += scheme_obj_mark(o->value.expr, mark);
         break;
     default:
         SHOULD_NEVER_BE_HERE;
     }
-    
+    return marked;
 }
 
-void scheme_mem_mark_used(scheme_context *ctx) {
+int scheme_mem_mark_used(scheme_context *ctx) {
     scheme_obj *env = ctx->env_top;
-    scheme_obj_mark(env);
+    int marked = scheme_obj_mark(env, EXTERNAL);
+
+    TRACE("%d objects in use", marked);
 }
 
 scheme_obj *scheme_mem_get(scheme_context *ctx) {
     scheme_mem *m = &ctx->mem;
     
     if (scheme_mem_no_free(m)) {
+        TRACE_NL;
         scheme_mem_unmark_all(m);
         scheme_mem_mark_used(ctx);
         scheme_mem_collect(m);
@@ -174,7 +191,7 @@ void scheme_mem_init(scheme_mem *m) {
     TRACE("Initializing heap...");
 
     m->free_list = NULL;
-    scheme_mem_unmark_all(m);
+    scheme_mem_force_unmark_all(m);
     scheme_mem_collect(m);
 }
 
@@ -201,17 +218,22 @@ void scheme_shutdown(scheme_context *c) {
     scheme_context_delete(c);
 }
 
-
 scheme_obj * scheme_obj_alloc(scheme_context *ctx) {
-    return scheme_mem_get(ctx);
+    scheme_obj * o = scheme_mem_get(ctx);
+    scheme_obj_set_mark(o, INTERNAL);
+    return o;
 }
 
-void scheme_obj_set_mark(scheme_obj *o, bool value) {
+void scheme_obj_set_mark(scheme_obj *o, scheme_mark_type value) {
     o->mark = value;
 }
 
-bool scheme_obj_is_marked(scheme_obj *o) {
-    return o->mark;
+bool scheme_obj_is_internal(scheme_obj *o) {
+    return o->mark == INTERNAL;
+}
+
+bool scheme_obj_is_unused(scheme_obj *o) {
+    return o->mark == UNUSED;
 }
 
 bool scheme_string_equal(const char *s1, const char *s2) {
@@ -251,7 +273,6 @@ scheme_obj * scheme_env_create(scheme_obj *names, scheme_obj *values,
 
     o->type = ENV;
 
-    o->value.env.parent_env = scheme_obj_nil();
     o->value.env.names = names ? names : scheme_obj_nil();
     o->value.env.values = values ? values : scheme_obj_nil();
 

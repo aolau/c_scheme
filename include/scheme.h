@@ -7,6 +7,8 @@
 typedef struct scheme_obj scheme_obj;
 typedef struct scheme_context scheme_context;
 
+typedef enum scheme_mark_type_ {UNUSED = 1, EXTERNAL, INTERNAL} scheme_mark_type;
+
 scheme_context * scheme_init();
 void scheme_shutdown(scheme_context *c);
 
@@ -23,6 +25,8 @@ scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
 
 void scheme_obj_delete(scheme_obj *o);
 
+int scheme_obj_mark(scheme_obj *o, scheme_mark_type mark);
+    
 scheme_obj * scheme_read(char *txt, scheme_context *ctx);
 
 char * scheme_print(scheme_obj *o);

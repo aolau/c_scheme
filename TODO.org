@@ -1,4 +1,5 @@
 Eval with GC
+* Issue: internal objects not in any environment are GCd
 * FIX: Quoted symbols and lists
 * FIX: Let
 
