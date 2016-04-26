@@ -58,11 +58,11 @@ TEST_EQ(0, scheme_obj_as_num(SCHEME_R("0")));
 TEST_EQ(5, scheme_obj_as_num(SCHEME_R("5")));
 
 /* read strings */
-TEST_EQ_STR("", scheme_obj_as_string(SCHEME_R("\"\"")));
-TEST_EQ_STR("a b c", scheme_obj_as_string(SCHEME_R("\"a b c\"")));
+TEST_EQ_STR("\"\"", SCHEME_RP("\"\""));
+TEST_EQ_STR("\"a b c\"", SCHEME_RP("\"a b c\""));
 
 /* read symbols */
-TEST_EQ_STR("foo", scheme_obj_as_string(SCHEME_R("foo")));
+TEST_EQ_STR("foo", SCHEME_RP("foo"));
 
 /* read and print */
 TEST_EQ_STR("1", SCHEME_RP("1"));
@@ -134,8 +134,8 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 
 /* GC */
 
-for (int j = 0; j < 100000; j++) {
-    TEST_EQ_STR("1", SCHEME_REP("(+ 1)"));
+for (int j = 0; j < 1000; j++) {
+    TEST_EQ_STR("(+ 1)", SCHEME_RP("(+ 1)"));
 }
 
 TEST_END(scheme);

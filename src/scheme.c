@@ -23,14 +23,31 @@ typedef struct scheme_cons {
     scheme_obj *cdr;
 } scheme_cons;
 
-enum scheme_obj_type {NIL = 1, SYMBOL, STRING, NUM, CONS, QUOTE, ENV};
+enum scheme_obj_type {FREELIST, NIL, SYMBOL, STRING, NUM, CONS, QUOTE, ENV,
+                      OBJ_TYPE_MAX_};
 
-    
+const char * obj_type_to_str(int t) {
+    static char *str[] = {
+        "FREELIST",
+        "NIL",
+        "SYMBOL",
+        "STRING",
+        "NUM",
+        "CONS",
+        "QUOTE",
+        "ENV",
+        "UNDEFINED"
+    };
+
+    return str[t];
+}
+
 #define SCHEME_STRING_SIZE 32
 
 typedef struct scheme_obj {
     enum scheme_obj_type type;
     scheme_mark_type mark;
+    scheme_obj *next;
     union {
         char str[SCHEME_STRING_SIZE];
         long int num;
@@ -66,14 +83,9 @@ scheme_obj * scheme_cdr(scheme_obj *cons) {
 
 #define SCHEME_HEAP_SIZE 10000
 
-typedef struct free_obj {
-    struct free_obj *next;
-} free_obj;
-
-
 typedef struct scheme_mem {
     scheme_obj heap[SCHEME_HEAP_SIZE];
-    free_obj *free_list;
+    scheme_obj *free_list;
 } scheme_mem;
 
 typedef struct scheme_context {
@@ -84,16 +96,15 @@ typedef struct scheme_context {
 void scheme_mem_free(scheme_mem *m, scheme_obj *o) {
     memset(o, 0, sizeof(scheme_obj));
     
-    free_obj *fo = (free_obj *)o;
-    fo->next = m->free_list;
-    m->free_list = fo;
+    o->next = m->free_list;
+    m->free_list = o;
 }
 
 scheme_obj * scheme_mem_alloc(scheme_mem *m) {
-    free_obj *fo = m->free_list;
-    m->free_list = fo->next;
+    scheme_obj *o = m->free_list;
+    m->free_list = o->next;
     
-    return (scheme_obj *)fo;
+    return o;
 }
 
 
@@ -214,7 +225,35 @@ scheme_context * scheme_init() {
     return scheme_context_create();
 }
 
+void scheme_mem_show_leaks(scheme_mem *m) {
+    int type_counts[OBJ_TYPE_MAX_] = {0};
+    int malformed = 0;
+    for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
+        scheme_obj *o = &m->heap[i];
+        if (o->type >= OBJ_TYPE_MAX_ || o->type < 0) {
+            malformed++;
+        } else if (! scheme_obj_is_unused(o)) {
+            type_counts[o->type]++;
+        }
+    }
+
+    TRACE("GC stats");
+    TRACE("Leaks:");
+    for (int i = 1; i < OBJ_TYPE_MAX_; i++) {
+        TRACE("%s = %d", obj_type_to_str(i), type_counts[i]);
+    }
+    TRACE("Malformed = %d", malformed);
+    TRACE_NL;
+}
+
+void scheme_mem_shutdown(scheme_context *c) {
+    scheme_mem *m = &c->mem;
+    scheme_obj_mark(c->env_top, UNUSED);
+    scheme_mem_show_leaks(m);
+}
+
 void scheme_shutdown(scheme_context *c) {
+    scheme_mem_shutdown(c);
     scheme_context_delete(c);
 }
 

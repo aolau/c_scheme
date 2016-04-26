@@ -1,5 +1,7 @@
 Eval with GC
-* Issue: internal objects not in any environment are GCd
+* Issue: internal objects not in any environment are not GCd
+** Manual unmark
+** Fix tests to be GC-friendly
 * FIX: Quoted symbols and lists
 * FIX: Let
 
