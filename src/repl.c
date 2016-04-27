@@ -9,10 +9,12 @@ int main() {
     
     scheme_context *ctx = scheme_init();
     
-    bool run = true;
-    
-    while (run) {
+    while (1) {
         char * line = readline("\nlsp> ");
+
+        if (strcmp(line, "quit") == 0)
+            break;
+
         add_history(line);
         
         scheme_obj *o = scheme_read(line, ctx);
@@ -23,10 +25,6 @@ int main() {
         
         scheme_obj_mark(o, UNUSED);
         scheme_obj_mark(eo, UNUSED);
-
-        if (strcmp(res, "quit") == 0) {
-            run = false;
-        }
     }
     
     scheme_shutdown(ctx);

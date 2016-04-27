@@ -772,6 +772,14 @@ scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
     return res;
 }
 
+scheme_obj * scheme_set(scheme_obj *args, scheme_context *ctx) {
+    scheme_obj *name = scheme_eval(scheme_car(args), ctx);
+    scheme_obj *value = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
+
+    scheme_env_add(&scheme_car(ctx->env_top)->value.env, name, value, ctx);
+    return value;
+}
+
 scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
     scheme_obj *res = NULL;
     const char *op = scheme_obj_as_string(scheme_car(o));
@@ -781,6 +789,8 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         res = scheme_list(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "let")) {
         res = scheme_let(scheme_cdr(o), ctx);
+    } else if (scheme_string_equal(op, "set")) {
+        res = scheme_set(scheme_cdr(o), ctx);
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
@@ -793,8 +803,6 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
 
 scheme_obj * scheme_eval_symbol(scheme_obj *name, scheme_context *ctx) {
     scheme_obj *value = scheme_env_lookup(ctx->env_top, name);
-    if (scheme_obj_is_nil(value))
-        return name; /* assume primitive proc for now */
     return value;
 }
 
