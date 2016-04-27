@@ -236,7 +236,7 @@ scheme_context * scheme_init() {
     scheme_context *c = scheme_context_create();
     scheme_context_push_env(c, scheme_env_create(
                                 scheme_read("(+ - * t nil)", c),
-                                scheme_read("(+ - * t nil)", c),
+                                scheme_read("(+ - * t ())", c),
                                 c));
     return c;
 }
@@ -578,8 +578,14 @@ char * scheme_print_list(scheme_obj *o, char *buf) {
             sprintf(buf++, " ");
         }
 
-        buf = scheme_print_obj(cur->value.con.car, buf);
-        cur = cur->value.con.cdr;
+        if (cur->type != CONS) {
+            buf += sprintf(buf, ". ");
+            buf = scheme_print_obj(cur, buf);
+            cur = scheme_obj_nil();
+        } else {
+            buf = scheme_print_obj(cur->value.con.car, buf);
+            cur = cur->value.con.cdr;
+        }
     }
     return buf;
 }
@@ -873,6 +879,10 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         res = scheme_defun(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "progn")) {
         res = scheme_eval_body(scheme_cdr(o), ctx);
+    } else if (scheme_string_equal(op, "cons")) {
+        scheme_obj *car = scheme_eval(scheme_car(args), ctx);
+        scheme_obj *cdr = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
+        res = scheme_obj_cons(car, cdr, ctx);
     } else if (scheme_string_equal(op, "car")) {
         scheme_obj *e = scheme_eval(scheme_car(args), ctx);
         res = scheme_car(e);
