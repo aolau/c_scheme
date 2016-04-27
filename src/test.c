@@ -53,10 +53,6 @@ TEST_EQ('a', scheme_peek("abc"));
 TEST_EQ(true, scheme_is_digit('0'));
 TEST_EQ(true, scheme_is_digit('9'));
 
-/* read numbers */ 
-TEST_EQ(0, scheme_obj_as_num(SCHEME_R("0")));
-TEST_EQ(5, scheme_obj_as_num(SCHEME_R("5")));
-
 /* read strings */
 TEST_EQ_STR("\"\"", SCHEME_RP("\"\""));
 TEST_EQ_STR("\"a b c\"", SCHEME_RP("\"a b c\""));
@@ -135,7 +131,7 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 /* GC */
 
 for (int j = 0; j < 1000; j++) {
-    TEST_EQ_STR("(+ 1)", SCHEME_RP("(+ 1)"));
+    TEST_EQ_STR("1", SCHEME_REP("(+ 1)"));
 }
 
 TEST_END(scheme);

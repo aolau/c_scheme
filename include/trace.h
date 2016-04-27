@@ -14,7 +14,7 @@ static const char *trace_name = "";
 #define TRACE_TIME do {                            \
         time_t t = time(NULL);                     \
         char buf[32];                              \
-        strftime(buf, 32, "%F %T", localtime(&t));    \
+        strftime(buf, 32, "%T", localtime(&t));    \
         TRACE_SIMPLE("%s - ", buf);                \
     } while(0)
       

@@ -675,14 +675,20 @@ bool scheme_is_true(scheme_obj *value) {
 
 scheme_obj * scheme_if(scheme_obj *args,
                        scheme_context *ctx) {
-    scheme_obj *pred = scheme_car(args);
+    scheme_obj *pred = scheme_eval(scheme_car(args), ctx);
+    
     scheme_obj *then_clause = scheme_car(scheme_cdr(args));
     scheme_obj *else_clause = scheme_car(scheme_cdr(scheme_cdr(args)));
+
+    scheme_obj *res = scheme_obj_nil();
     
-    if (scheme_is_true(scheme_eval(pred, ctx)))
-        return scheme_eval(then_clause, ctx);
+    if (scheme_is_true(pred))
+        res = scheme_eval(then_clause, ctx);
     else
-        return scheme_eval(else_clause, ctx);
+        res = scheme_eval(else_clause, ctx);
+
+    scheme_obj_mark(pred, UNUSED);
+    return res;
 }
 
 scheme_obj * scheme_list(scheme_obj *objs, scheme_context *ctx) {
@@ -712,7 +718,9 @@ void scheme_context_push_env(scheme_context *ctx, scheme_obj *env) {
 }
 
 void scheme_context_pop_env(scheme_context *ctx) {
-    ctx->env_top = scheme_cdr(ctx->env_top);
+    scheme_obj *env = ctx->env_top;
+    scheme_obj_mark(env, UNUSED);
+    ctx->env_top = scheme_cdr(env);
 }
 
 scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
@@ -745,6 +753,8 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
         res = scheme_apply(proc, args, ctx);
+        scheme_obj_mark(proc, UNUSED);
+        scheme_obj_mark(args, UNUSED);
     }
     return res;
 }
