@@ -23,7 +23,8 @@ typedef struct scheme_cons {
     scheme_obj *cdr;
 } scheme_cons;
 
-enum scheme_obj_type {FREELIST, NIL, SYMBOL, STRING, NUM, CONS, QUOTE, ENV,
+enum scheme_obj_type {FREELIST, NIL, SYMBOL, STRING, NUM, CONS,
+                      QUOTE, ENV, LAMBDA,
                       OBJ_TYPE_MAX_};
 
 const char * obj_type_to_str(int t) {
@@ -36,11 +37,17 @@ const char * obj_type_to_str(int t) {
         "CONS",
         "QUOTE",
         "ENV",
+        "LAMBDA",
         "UNDEFINED"
     };
 
     return str[t];
 }
+
+typedef struct scheme_lambda {
+    scheme_obj *args;
+    scheme_obj *body;
+} scheme_lambda;
 
 #define SCHEME_STRING_SIZE 32
 
@@ -53,6 +60,7 @@ typedef struct scheme_obj {
         long int num;
         scheme_cons con;
         scheme_env env;
+        scheme_lambda lambda;
         scheme_obj *expr;
     } value;
 } scheme_obj;
@@ -169,6 +177,10 @@ int scheme_obj_mark(scheme_obj *o, scheme_mark_type mark) {
         break;
     case QUOTE:
         marked += scheme_obj_mark(o->value.expr, mark);
+        break;
+    case LAMBDA:
+        marked += scheme_obj_mark(o->value.lambda.args, mark);
+        marked += scheme_obj_mark(o->value.lambda.body, mark);
         break;
     default:
         SHOULD_NEVER_BE_HERE;
@@ -685,11 +697,6 @@ proc_ptr scheme_get_proc(const char *name) {
     return scheme_fallback_proc;
 }
 
-scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args,
-                          scheme_context *ctx) {
-    const char *proc_name = scheme_obj_as_string(proc);
-    return (*scheme_get_proc(proc_name))(args, ctx);
-}
 
 scheme_obj * scheme_eval_seq(scheme_obj *seq, scheme_context *ctx) {
     if (scheme_obj_is_nil(seq)) {
@@ -755,6 +762,34 @@ void scheme_context_pop_env(scheme_context *ctx) {
     ctx->env_top = scheme_cdr(env);
 }
 
+scheme_obj * scheme_eval_body(scheme_obj *b, scheme_context *ctx) {
+    scheme_obj *cur = b;
+    scheme_obj *res = NULL;
+    while (! scheme_obj_is_nil(cur)) {
+        res = scheme_eval(scheme_car(cur), ctx);
+        cur = scheme_cdr(cur);
+    }
+    return res;
+}
+
+scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args,
+                          scheme_context *ctx) {
+    scheme_obj *res = NULL;
+    
+    if (proc->type == LAMBDA) {
+        scheme_context_push_env(ctx,
+                                scheme_env_create(proc->value.lambda.args,
+                                                  args,
+                                                  ctx));
+        res = scheme_eval_body(proc->value.lambda.body, ctx);
+        scheme_context_pop_env(ctx);
+    } else {
+        const char *proc_name = scheme_obj_as_string(proc);
+        res =  (*scheme_get_proc(proc_name))(args, ctx);
+    }
+    return res;
+}
+
 scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
     scheme_obj *bindings = scheme_car(args);
     scheme_obj *body = scheme_cdr(args);
@@ -762,22 +797,37 @@ scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
     scheme_context_push_env(ctx, NULL);
     scheme_eval_bindings(bindings, ctx);
 
-    scheme_obj *cur = body;
-    scheme_obj *res = NULL;
-    while (! scheme_obj_is_nil(cur)) {
-        res = scheme_eval(scheme_car(cur), ctx);
-        cur = scheme_cdr(cur);
-    }
+    scheme_obj *res = scheme_eval_body(body, ctx);
+
     scheme_context_pop_env(ctx);
     return res;
 }
 
-scheme_obj * scheme_set(scheme_obj *args, scheme_context *ctx) {
-    scheme_obj *name = scheme_eval(scheme_car(args), ctx);
-    scheme_obj *value = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
+scheme_obj * scheme_set(scheme_obj *name, scheme_obj *value,
+                        scheme_context *ctx) {
 
     scheme_env_add(&scheme_car(ctx->env_top)->value.env, name, value, ctx);
     return value;
+}
+
+scheme_obj * scheme_obj_lambda(scheme_obj *o, scheme_context *ctx) {
+    scheme_obj *args = scheme_obj_copy(scheme_car(o), ctx);
+    scheme_obj *body = scheme_obj_copy(scheme_cdr(o), ctx);
+
+    scheme_obj *l = scheme_obj_alloc(ctx);
+    l->type = LAMBDA;
+    l->value.lambda.args = args;
+    l->value.lambda.body = body;
+
+    return l;
+}
+
+scheme_obj * scheme_defun(scheme_obj *o, scheme_context *ctx) {
+    scheme_obj *name = scheme_obj_copy(scheme_car(o), ctx);
+    scheme_obj *proc = scheme_obj_lambda(scheme_cdr(o), ctx);
+
+    scheme_set(name, proc, ctx);
+    return name;
 }
 
 scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
@@ -790,7 +840,12 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
     } else if (scheme_string_equal(op, "let")) {
         res = scheme_let(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "set")) {
-        res = scheme_set(scheme_cdr(o), ctx);
+        scheme_obj *args = scheme_cdr(o);
+        scheme_obj *name = scheme_eval(scheme_car(args), ctx);
+        scheme_obj *value = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
+        res = scheme_set(name, value, ctx);
+    } else if (scheme_string_equal(op, "defun")) {
+        res = scheme_defun(scheme_cdr(o), ctx);
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
