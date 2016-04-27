@@ -846,6 +846,8 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         res = scheme_set(name, value, ctx);
     } else if (scheme_string_equal(op, "defun")) {
         res = scheme_defun(scheme_cdr(o), ctx);
+    } else if (scheme_string_equal(op, "progn")) {
+        res = scheme_eval_body(scheme_cdr(o), ctx);
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
