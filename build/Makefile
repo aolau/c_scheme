@@ -21,10 +21,10 @@ CPPFLAGS = -I$(INC_DIR)
 CFLAGS = -ggdb -std=c99
 
 .PHONY: all
-all: $(PROG) $(TEST) TAGS
+all: $(REPL) $(PROG) $(TEST) TAGS
 
 $(REPL): $(REPL_OBJ)
-	gcc -o $@ $^ -L/usr/lib/x86_64-linux-gnu/ -lreadline
+	gcc -o $@ $^ -lreadline
 
 $(PROG): $(PROG_OBJ)
 	gcc -o $@ $^
@@ -54,4 +54,4 @@ check: run_tests
 
 .PHONY: clean
 clean:
-	rm -f $(PROG) $(TEST) $(PROG_OBJ) $(TEST_OBJ) TAGS
+	rm -f $(REPL) $(PROG) $(TEST) $(PROG_OBJ) $(TEST_OBJ) TAGS

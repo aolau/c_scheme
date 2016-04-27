@@ -1,9 +1,19 @@
-* FIX: Quoted symbols and lists
-* FIX: Let
+* General
+** Split into files
+** Cleanup interface
+
+* Performance
+** Make benchmark
 
 * REPL
+** Autocomplete names
 
 * Memory management
+** More efficient object representation
+
+* Environment
+** More efficient representation and lookup
+
 * User defined procedures
 
 * Other

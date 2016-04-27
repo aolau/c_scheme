@@ -5,14 +5,14 @@
 #include "scheme.h"
 
 int main() {
-    printf("-- Welcome to lsp! --\n\n");
+    printf("-- Welcome to LSP! --\n\n");
     
     scheme_context *ctx = scheme_init();
     
     while (1) {
-        char * line = readline("\nlsp> ");
+        char * line = readline("\nLSP> ");
 
-        if (strcmp(line, "quit") == 0)
+        if (strcmp(line, "(quit)") == 0)
             break;
 
         add_history(line);
