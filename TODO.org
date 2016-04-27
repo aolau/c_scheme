@@ -3,6 +3,9 @@
 ** Split into files
 ** Cleanup interface
 
+* BUGS
+** car and cdr are destructive!
+
 * Performance
 ** Make benchmark
 

@@ -142,7 +142,9 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 TEST_EQ_STR("add", SCHEME_REP("(defun add (a b) (+ a b))"));
 
 /* cons */
-TEST_EQ_STR("(1)", SCHEME_REP("(cons 1 ())"));
+TEST_EQ_STR("(1)", SCHEME_REP("(cons 1 nil)"));
+TEST_EQ_STR("(1 2)", SCHEME_REP("(cons 1 (cons 2 nil))"));
+TEST_EQ_STR("(1 2 . 3)", SCHEME_REP("(cons 1 (cons 2 3))"));
 
 /* car, cdr */
 TEST_EQ_STR("1", SCHEME_REP("(car '(1 2 3))"));
