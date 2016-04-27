@@ -141,4 +141,20 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 /* defun */
 TEST_EQ_STR("add", SCHEME_REP("(defun add (a b) (+ a b))"));
 
+/* car, cdr */
+TEST_EQ_STR("1", SCHEME_REP("(car '(1 2 3))"));
+TEST_EQ_STR("(2 3)", SCHEME_REP("(cdr '(1 2 3))"));
+TEST_EQ_STR("nil", SCHEME_REP("(car '())"));
+TEST_EQ_STR("nil", SCHEME_REP("(cdr '())"));
+
+/* progn */
+TEST_EQ_STR("3", SCHEME_REP("(progn 1 2 (+ 2 1))"));
+
+/* equal */
+TEST_EQ_STR("t", SCHEME_REP("(equal \"a\" \"a\")"));
+TEST_EQ_STR("nil", SCHEME_REP("(equal \"a\" \"b\")"));
+
+TEST_EQ_STR("t", SCHEME_REP("(equal 1 1)"));
+TEST_EQ_STR("nil", SCHEME_REP("(equal 1 2)"));
+
 TEST_END(scheme);

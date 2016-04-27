@@ -234,9 +234,10 @@ static void scheme_context_delete(scheme_context *c) {
 
 scheme_context * scheme_init() {
     scheme_context *c = scheme_context_create();
-    scheme_context_push_env(c, scheme_env_create(scheme_read("(+ - *)", c),
-                                                 scheme_read("(+ - *)", c),
-                                                 c));
+    scheme_context_push_env(c, scheme_env_create(
+                                scheme_read("(+ - * t nil)", c),
+                                scheme_read("(+ - * t nil)", c),
+                                c));
     return c;
 }
 
@@ -257,6 +258,7 @@ void scheme_mem_show_leaks(scheme_mem *m) {
     for (int i = 1; i < OBJ_TYPE_MAX_; i++) {
         TRACE("%s = %d", obj_type_to_str(i), type_counts[i]);
     }
+    TRACE_NL;
     TRACE("Malformed = %d", malformed);
     TRACE_NL;
 }
@@ -294,6 +296,10 @@ bool scheme_string_equal(const char *s1, const char *s2) {
     return strcmp(s1, s2) == 0;
 }
 
+bool scheme_num_equal(long int n1, long int n2) {
+    return n1 == n2;
+}
+
 bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
     if (o1->type != o2->type)
         return false;
@@ -302,13 +308,14 @@ bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
     case SYMBOL:
     case STRING:
         return scheme_string_equal(o1->value.str, o2->value.str);
+    case NUM:
+        return scheme_num_equal(o1->value.num, o2->value.num);
     default:
         break;
     }
 
     return false;
 }
-
 
 scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
                              scheme_context *ctx) {
@@ -405,6 +412,13 @@ char * scheme_eat_space(char *txt) {
     while (*pos == ' ')
         pos++;
     return pos;
+}
+
+scheme_obj *scheme_truth(bool value, scheme_context *ctx) {
+    if (value)
+        return scheme_obj_symbol("t", ctx);
+    else
+        return scheme_obj_nil();
 }
 
 char scheme_peek(char *txt) {
@@ -575,6 +589,10 @@ char * scheme_print_nil(char *buf) {
     return buf + 3;
 }
 
+char * scheme_print_lambda(scheme_obj *o, char *buf) {
+    return buf + sprintf(buf, "lambda");
+}
+
 char * scheme_print_obj(scheme_obj *obj, char *buf) {
     char *next = buf;
     
@@ -596,6 +614,9 @@ char * scheme_print_obj(scheme_obj *obj, char *buf) {
         break;
     case QUOTE:
         next = scheme_print_quote(obj, buf);
+        break;
+    case LAMBDA:
+        next = scheme_print_lambda(obj, buf);
         break;
     default:
         SHOULD_NEVER_BE_HERE;
@@ -846,14 +867,28 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         scheme_obj *name = scheme_eval(scheme_car(args), ctx);
         scheme_obj *value = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
         res = scheme_set(name, value, ctx);
+    } else if (scheme_string_equal(op, "lambda")) {
+        res = scheme_obj_lambda(args, ctx);
     } else if (scheme_string_equal(op, "defun")) {
         res = scheme_defun(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "progn")) {
         res = scheme_eval_body(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "car")) {
-        res = scheme_car(scheme_eval(scheme_car(args), ctx));
+        scheme_obj *e = scheme_eval(scheme_car(args), ctx);
+        res = scheme_car(e);
+        e->value.con.car = scheme_obj_nil();
+        scheme_obj_mark(e, UNUSED);
     } else if (scheme_string_equal(op, "cdr")) {
-        res = scheme_cdr(scheme_eval(scheme_car(args), ctx));
+        scheme_obj *e = scheme_eval(scheme_car(args), ctx);
+        res = scheme_cdr(e);
+        e->value.con.cdr = scheme_obj_nil();
+        scheme_obj_mark(e, UNUSED);
+    } else if (scheme_string_equal(op, "equal")) {
+        scheme_obj *a = scheme_eval(scheme_car(args), ctx);
+        scheme_obj *b = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
+        res = scheme_truth(scheme_obj_equal(a, b), ctx);
+        scheme_obj_mark(a, UNUSED);
+        scheme_obj_mark(b, UNUSED);
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
