@@ -213,7 +213,6 @@ static scheme_context * scheme_context_create() {
     scheme_mem_init(&c->mem);
 
     c->env_top = scheme_obj_nil();
-    scheme_context_push_env(c, NULL);
     return c;
 }
 
@@ -222,7 +221,11 @@ static void scheme_context_delete(scheme_context *c) {
 }
 
 scheme_context * scheme_init() {
-    return scheme_context_create();
+    scheme_context *c = scheme_context_create();
+    scheme_context_push_env(c, scheme_env_create(scheme_read("(+ - *)", c),
+                                                 scheme_read("(+ - *)", c),
+                                                 c));
+    return c;
 }
 
 void scheme_mem_show_leaks(scheme_mem *m) {
@@ -595,8 +598,37 @@ char * scheme_print(scheme_obj *obj) {
     return buf;
 }
 
+scheme_obj * scheme_obj_copy(scheme_obj *o, scheme_context *ctx) {
+    if (scheme_obj_is_nil(o)) {
+        return scheme_obj_nil();
+    }
+
+    scheme_obj *copy = scheme_obj_alloc(ctx);
+
+    copy->type = o->type;
+    copy->value = o->value;
+    
+    switch (o->type) {
+    case NUM:
+    case STRING:
+    case SYMBOL:
+        break;
+    case CONS:
+        copy->value.con.car = scheme_obj_copy(scheme_car(o), ctx);
+        copy->value.con.cdr = scheme_obj_copy(scheme_cdr(o), ctx);
+        break;
+    case QUOTE:
+        copy->value.expr = scheme_obj_copy(o->value.expr, ctx);
+        break;
+    case ENV:
+    default:
+        SHOULD_NEVER_BE_HERE;
+    }
+    return copy;
+}
+
 scheme_obj * scheme_eval_quote(scheme_obj *o, scheme_context *ctx) {
-    return scheme_eval(o->value.expr, ctx);
+    return scheme_obj_copy(o->value.expr, ctx);
 }
 
 scheme_obj * scheme_primitive_mul(scheme_obj *args, scheme_context *ctx) {

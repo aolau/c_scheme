@@ -31,8 +31,8 @@ TEST_SETUP(scheme) {
     context = scheme_init();
     scheme_context_push_env(context,
                             scheme_env_create(
-                                scheme_read("(+ - * nil if a b c)", context),
-                                scheme_read("(+ - * () if 1 2 3)", context),
+                                scheme_read("(a b c)", context),
+                                scheme_read("(1 2 3)", context),
                                 context));
 }
 
@@ -96,6 +96,10 @@ TEST_EQ_STR("nil", SCHEME_REP("()"));
             
 /* quote */
 TEST_EQ_STR("1", SCHEME_REP("\'1"));
+TEST_EQ_STR("foo", SCHEME_REP("'foo"));
+TEST_EQ_STR("nil", SCHEME_REP("'()"));
+TEST_EQ_STR("(1 2 3)", SCHEME_REP("'(1 2 3)"));
+TEST_EQ_STR("'foo", SCHEME_REP("''foo"));
 
 
 /* primitive operations */
@@ -130,8 +134,8 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 
 /* GC */
 
-for (int j = 0; j < 1000; j++) {
-    TEST_EQ_STR("1", SCHEME_REP("(+ 1)"));
+for (int j = 0; j < 10000; j++) {
+    TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b 0)) (if a (+ a b) 0))"));
 }
 
 TEST_END(scheme);
