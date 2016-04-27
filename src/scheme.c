@@ -833,6 +833,8 @@ scheme_obj * scheme_defun(scheme_obj *o, scheme_context *ctx) {
 scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
     scheme_obj *res = NULL;
     const char *op = scheme_obj_as_string(scheme_car(o));
+    scheme_obj *args = scheme_cdr(o);
+    
     if (scheme_string_equal(op, "if")) {
         res = scheme_if(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "list")) {
@@ -848,6 +850,10 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         res = scheme_defun(scheme_cdr(o), ctx);
     } else if (scheme_string_equal(op, "progn")) {
         res = scheme_eval_body(scheme_cdr(o), ctx);
+    } else if (scheme_string_equal(op, "car")) {
+        res = scheme_car(scheme_eval(scheme_car(args), ctx));
+    } else if (scheme_string_equal(op, "cdr")) {
+        res = scheme_cdr(scheme_eval(scheme_car(args), ctx));
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);

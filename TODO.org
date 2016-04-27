@@ -1,4 +1,5 @@
 * General
+** Cleanup eval function 
 ** Split into files
 ** Cleanup interface
 
