@@ -317,6 +317,39 @@ bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
     return false;
 }
 
+scheme_obj * scheme_obj_copy(scheme_obj *o, scheme_context *ctx) {
+    if (scheme_obj_is_nil(o)) {
+        return scheme_obj_nil();
+    }
+
+    scheme_obj *copy = scheme_obj_alloc(ctx);
+
+    copy->type = o->type;
+    copy->value = o->value;
+    
+    switch (o->type) {
+    case NUM:
+    case STRING:
+    case SYMBOL:
+        break;
+    case CONS:
+        copy->value.con.car = scheme_obj_copy(scheme_car(o), ctx);
+        copy->value.con.cdr = scheme_obj_copy(scheme_cdr(o), ctx);
+        break;
+    case QUOTE:
+        copy->value.expr = scheme_obj_copy(o->value.expr, ctx);
+        break;
+    case LAMBDA:
+        copy->value.lambda.args = scheme_obj_copy(o->value.lambda.args, ctx);
+        copy->value.lambda.body = scheme_obj_copy(o->value.lambda.body, ctx);
+        break;
+    case ENV:
+    default:
+        SHOULD_NEVER_BE_HERE;
+    }
+    return copy;
+}
+
 scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
                              scheme_context *ctx) {
     scheme_obj *o = scheme_obj_alloc(ctx);
@@ -346,7 +379,8 @@ void scheme_env_add(scheme_env *env, scheme_obj *name, scheme_obj *value,
     env->values = scheme_obj_cons(value, env->values, ctx);
 }
 
-scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name) {
+scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name,
+                               scheme_context *ctx) {
     if (scheme_obj_is_nil(env)) {
         TRACE("Lookup failed for: %s", scheme_obj_as_string(name));
         return scheme_obj_nil();
@@ -357,12 +391,12 @@ scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name) {
 
     while (! scheme_obj_is_nil(names)) {
         if (scheme_obj_equal(name, scheme_car(names)))
-            return scheme_car(values);
+            return scheme_obj_copy(scheme_car(values), ctx);
         
         names = scheme_cdr(names);
         values = scheme_cdr(values);
     }
-    return scheme_env_lookup(scheme_cdr(env), name);
+    return scheme_env_lookup(scheme_cdr(env), name, ctx);
 }
 
 scheme_obj * scheme_obj_num(long int num, scheme_context *ctx) {
@@ -637,34 +671,6 @@ char * scheme_print(scheme_obj *obj) {
     return buf;
 }
 
-scheme_obj * scheme_obj_copy(scheme_obj *o, scheme_context *ctx) {
-    if (scheme_obj_is_nil(o)) {
-        return scheme_obj_nil();
-    }
-
-    scheme_obj *copy = scheme_obj_alloc(ctx);
-
-    copy->type = o->type;
-    copy->value = o->value;
-    
-    switch (o->type) {
-    case NUM:
-    case STRING:
-    case SYMBOL:
-        break;
-    case CONS:
-        copy->value.con.car = scheme_obj_copy(scheme_car(o), ctx);
-        copy->value.con.cdr = scheme_obj_copy(scheme_cdr(o), ctx);
-        break;
-    case QUOTE:
-        copy->value.expr = scheme_obj_copy(o->value.expr, ctx);
-        break;
-    case ENV:
-    default:
-        SHOULD_NEVER_BE_HERE;
-    }
-    return copy;
-}
 
 scheme_obj * scheme_eval_quote(scheme_obj *o, scheme_context *ctx) {
     return scheme_obj_copy(o->value.expr, ctx);
@@ -857,6 +863,30 @@ scheme_obj * scheme_defun(scheme_obj *o, scheme_context *ctx) {
     return name;
 }
 
+#define MAX_FILE_SIZE 10000
+char * scheme_load_file(scheme_obj *args, scheme_context *ctx) {
+    const char *file_name = scheme_obj_as_string(scheme_car(args));
+    static char buf[MAX_FILE_SIZE];
+
+    FILE *fp = fopen(file_name, "r");
+    if (fp != NULL) {
+        char * cur = buf;
+        while (1) {
+            size_t len = fread(cur, sizeof(char), 1, fp);
+
+            if (len == 0) {
+                *cur = '\0';
+                return buf;
+            }
+            
+            if (*cur != '\n' && *cur != '\t') {
+                cur++;
+            }
+        }
+    }
+    return NULL;
+}
+
 scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
     scheme_obj *res = NULL;
     const char *op = scheme_obj_as_string(scheme_car(o));
@@ -899,6 +929,12 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
         res = scheme_truth(scheme_obj_equal(a, b), ctx);
         scheme_obj_mark(a, UNUSED);
         scheme_obj_mark(b, UNUSED);
+    } else if (scheme_string_equal(op, "load")) {
+        char *code = scheme_load_file(args, ctx);
+        scheme_obj *ro = scheme_read(code, ctx);
+        scheme_obj *eo = scheme_eval(ro, ctx);
+        scheme_obj_mark(ro, UNUSED);
+        res = eo;
     } else {
         scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
         scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
@@ -910,7 +946,7 @@ scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
 }
 
 scheme_obj * scheme_eval_symbol(scheme_obj *name, scheme_context *ctx) {
-    scheme_obj *value = scheme_env_lookup(ctx->env_top, name);
+    scheme_obj *value = scheme_env_lookup(ctx->env_top, name, ctx);
     return value;
 }
 

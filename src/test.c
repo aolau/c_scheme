@@ -134,9 +134,9 @@ TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b (let ((a 2)) a))) (- b a))"));
 
 /* GC */
 
-/* for (int j = 0; j < 10000; j++) { */
-/*     TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b 0)) (if a (+ a b) 0))")); */
-/* } */
+for (int j = 0; j < 10000; j++) {
+    TEST_EQ_STR("1", SCHEME_REP("(let ((a 1) (b 0)) (if a (+ a b) 0))"));
+}
 
 /* defun */
 TEST_EQ_STR("add", SCHEME_REP("(defun add (a b) (+ a b))"));
