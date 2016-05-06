@@ -1,14 +1,14 @@
 REPL = repl
-PROG = scheme
+PROG = lsp
 TEST = test_$(PROG)
 
-REPL_SRC = repl.c scheme.c
+REPL_SRC = repl.c lsp.c
 REPL_OBJ = $(patsubst %.c,%.o,$(REPL_SRC))
 
 PROG_SRC = main.c
 PROG_OBJ = $(patsubst %.c,%.o,$(PROG_SRC))
 
-TEST_SRC = test.c scheme.c
+TEST_SRC = test.c lsp.c
 TEST_OBJ = $(patsubst %.c,%.o,$(TEST_SRC))
 
 SRC_DIR = ../src
@@ -18,7 +18,7 @@ vpath %.c $(SRC_DIR)
 vpath %.h $(INC_DIR)
 
 CPPFLAGS = -I$(INC_DIR)
-CFLAGS = -ggdb -std=c99
+CFLAGS = -O2 -ggdb -std=c99
 
 .PHONY: all
 all: $(REPL) $(PROG) $(TEST) TAGS

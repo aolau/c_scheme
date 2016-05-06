@@ -1,29 +1,29 @@
-#include "scheme.h"
+#include "lsp.h"
 #include "check.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-static void * scheme_alloc(size_t size) {
+static void * lsp_alloc(size_t size) {
     return malloc(size);
 }
 
-static void scheme_free(void *mem) {
+static void lsp_free(void *mem) {
     free(mem);
 }
 
-typedef struct scheme_env {
-    scheme_obj *names;
-    scheme_obj *values;
-} scheme_env;
+typedef struct lsp_env {
+    lsp_obj *names;
+    lsp_obj *values;
+} lsp_env;
 
-typedef struct scheme_cons {
-    scheme_obj *car;
-    scheme_obj *cdr;
-} scheme_cons;
+typedef struct lsp_cons {
+    lsp_obj *car;
+    lsp_obj *cdr;
+} lsp_cons;
 
-enum scheme_obj_type {FREELIST, NIL, SYMBOL, STRING, NUM, CONS,
+enum lsp_obj_type {FREELIST, NIL, SYMBOL, STRING, NUM, CONS,
                       QUOTE, ENV, LAMBDA,
                       OBJ_TYPE_MAX_};
 
@@ -44,120 +44,120 @@ const char * obj_type_to_str(int t) {
     return str[t];
 }
 
-typedef struct scheme_lambda {
-    scheme_obj *args;
-    scheme_obj *body;
-} scheme_lambda;
+typedef struct lsp_lambda {
+    lsp_obj *args;
+    lsp_obj *body;
+} lsp_lambda;
 
-#define SCHEME_STRING_SIZE 32
+#define LSP_STRING_SIZE 32
 
-typedef struct scheme_obj {
-    enum scheme_obj_type type;
-    scheme_mark_type mark;
-    scheme_obj *next;
+typedef struct lsp_obj {
+    enum lsp_obj_type type;
+    lsp_mark_type mark;
+    lsp_obj *next;
     union {
-        char str[SCHEME_STRING_SIZE];
+        char str[LSP_STRING_SIZE];
         long int num;
-        scheme_cons con;
-        scheme_env env;
-        scheme_lambda lambda;
-        scheme_obj *expr;
+        lsp_cons con;
+        lsp_env env;
+        lsp_lambda lambda;
+        lsp_obj *expr;
     } value;
-} scheme_obj;
+} lsp_obj;
 
-static scheme_obj static_obj_nil = {.type = NIL};
+static lsp_obj static_obj_nil = {.type = NIL};
 
-scheme_obj * scheme_obj_nil() {
+lsp_obj * lsp_obj_nil() {
     return &static_obj_nil;
 }
 
-bool scheme_obj_is_nil(scheme_obj *o) {
+bool lsp_obj_is_nil(lsp_obj *o) {
     return o == &static_obj_nil;
 }
 
-scheme_obj * scheme_car(scheme_obj *cons) {
-    if (scheme_obj_is_nil(cons))
-        return scheme_obj_nil();
+lsp_obj * lsp_car(lsp_obj *cons) {
+    if (lsp_obj_is_nil(cons))
+        return lsp_obj_nil();
     else
         return cons->value.con.car;
 }
 
-scheme_obj * scheme_cdr(scheme_obj *cons) {
-    if (scheme_obj_is_nil(cons))
-        return scheme_obj_nil();
+lsp_obj * lsp_cdr(lsp_obj *cons) {
+    if (lsp_obj_is_nil(cons))
+        return lsp_obj_nil();
     else
         return cons->value.con.cdr;
 }
 
-#define SCHEME_HEAP_SIZE 10000
+#define LSP_HEAP_SIZE 100000
 
-typedef struct scheme_mem {
-    scheme_obj heap[SCHEME_HEAP_SIZE];
-    scheme_obj *free_list;
-} scheme_mem;
+typedef struct lsp_mem {
+    lsp_obj heap[LSP_HEAP_SIZE];
+    lsp_obj *free_list;
+} lsp_mem;
 
-typedef struct scheme_context {
-    scheme_obj *env_top;
-    scheme_mem mem;
-} scheme_context;
+typedef struct lsp_context {
+    lsp_obj *env_top;
+    lsp_mem mem;
+} lsp_context;
 
-void scheme_mem_free(scheme_mem *m, scheme_obj *o) {
-    memset(o, 0, sizeof(scheme_obj));
+void lsp_mem_free(lsp_mem *m, lsp_obj *o) {
+    memset(o, 0, sizeof(lsp_obj));
     
     o->next = m->free_list;
     m->free_list = o;
 }
 
-scheme_obj * scheme_mem_alloc(scheme_mem *m) {
-    scheme_obj *o = m->free_list;
+lsp_obj * lsp_mem_alloc(lsp_mem *m) {
+    lsp_obj *o = m->free_list;
     m->free_list = o->next;
     
     return o;
 }
 
 
-bool scheme_obj_is_unused(scheme_obj *o);
-bool scheme_obj_is_internal(scheme_obj *o);
-void scheme_obj_set_mark(scheme_obj *o, scheme_mark_type value);
+bool lsp_obj_is_unused(lsp_obj *o);
+bool lsp_obj_is_internal(lsp_obj *o);
+void lsp_obj_set_mark(lsp_obj *o, lsp_mark_type value);
 
-void scheme_mem_unmark_all_(scheme_mem *m, bool force) {
+void lsp_mem_unmark_all_(lsp_mem *m, bool force) {
     TRACE("Unmarking all memory...");
-    for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
-        if (force || (! scheme_obj_is_internal(&m->heap[i])))
-            scheme_obj_set_mark(&(m->heap[i]), UNUSED);
+    for (int i = 0; i < LSP_HEAP_SIZE; i++) {
+        if (force || (! lsp_obj_is_internal(&m->heap[i])))
+            lsp_obj_set_mark(&(m->heap[i]), UNUSED);
     }
 }
 
-void scheme_mem_force_unmark_all(scheme_mem *m) {
-    scheme_mem_unmark_all_(m, true);
+void lsp_mem_force_unmark_all(lsp_mem *m) {
+    lsp_mem_unmark_all_(m, true);
 }
 
-void scheme_mem_unmark_all(scheme_mem *m) {
-    scheme_mem_unmark_all_(m, false);
+void lsp_mem_unmark_all(lsp_mem *m) {
+    lsp_mem_unmark_all_(m, false);
 }
 
-void scheme_mem_collect(scheme_mem *m) {
+void lsp_mem_collect(lsp_mem *m) {
     CHECK(m->free_list == NULL);
 
     TRACE("Collecting garbage...");
     int count = 0;
-    for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
-        if (scheme_obj_is_unused(&(m->heap[i]))) {
-            scheme_mem_free(m, &(m->heap[i]));
+    for (int i = 0; i < LSP_HEAP_SIZE; i++) {
+        if (lsp_obj_is_unused(&(m->heap[i]))) {
+            lsp_mem_free(m, &(m->heap[i]));
             count++;
         }
     }
     TRACE("%d objects freed", count);
 }
 
-bool scheme_mem_no_free(scheme_mem *m) {
+bool lsp_mem_no_free(lsp_mem *m) {
     return m->free_list == NULL;
 }
 
-int scheme_obj_mark(scheme_obj *o, scheme_mark_type mark) {
+int lsp_obj_mark(lsp_obj *o, lsp_mark_type mark) {
     int marked = 0;
-    if (! scheme_obj_is_nil(o)) {
-        scheme_obj_set_mark(o, mark);
+    if (! lsp_obj_is_nil(o)) {
+        lsp_obj_set_mark(o, mark);
         marked++;
     }
 
@@ -168,19 +168,19 @@ int scheme_obj_mark(scheme_obj *o, scheme_mark_type mark) {
     case NIL:
         break;
     case CONS:
-        marked += scheme_obj_mark(scheme_car(o), mark);
-        marked += scheme_obj_mark(scheme_cdr(o), mark);
+        marked += lsp_obj_mark(lsp_car(o), mark);
+        marked += lsp_obj_mark(lsp_cdr(o), mark);
         break;
     case ENV:
-        marked += scheme_obj_mark(o->value.env.names, mark);
-        marked += scheme_obj_mark(o->value.env.values, mark);
+        marked += lsp_obj_mark(o->value.env.names, mark);
+        marked += lsp_obj_mark(o->value.env.values, mark);
         break;
     case QUOTE:
-        marked += scheme_obj_mark(o->value.expr, mark);
+        marked += lsp_obj_mark(o->value.expr, mark);
         break;
     case LAMBDA:
-        marked += scheme_obj_mark(o->value.lambda.args, mark);
-        marked += scheme_obj_mark(o->value.lambda.body, mark);
+        marked += lsp_obj_mark(o->value.lambda.args, mark);
+        marked += lsp_obj_mark(o->value.lambda.body, mark);
         break;
     default:
         SHOULD_NEVER_BE_HERE;
@@ -188,67 +188,67 @@ int scheme_obj_mark(scheme_obj *o, scheme_mark_type mark) {
     return marked;
 }
 
-int scheme_mem_mark_used(scheme_context *ctx) {
-    scheme_obj *env = ctx->env_top;
-    int marked = scheme_obj_mark(env, EXTERNAL);
+int lsp_mem_mark_used(lsp_context *ctx) {
+    lsp_obj *env = ctx->env_top;
+    int marked = lsp_obj_mark(env, EXTERNAL);
 
     TRACE("%d objects in use", marked);
 }
 
-scheme_obj *scheme_mem_get(scheme_context *ctx) {
-    scheme_mem *m = &ctx->mem;
+lsp_obj *lsp_mem_get(lsp_context *ctx) {
+    lsp_mem *m = &ctx->mem;
     
-    if (scheme_mem_no_free(m)) {
+    if (lsp_mem_no_free(m)) {
         TRACE_NL;
-        scheme_mem_unmark_all(m);
-        scheme_mem_mark_used(ctx);
-        scheme_mem_collect(m);
+        lsp_mem_unmark_all(m);
+        lsp_mem_mark_used(ctx);
+        lsp_mem_collect(m);
     }
 
-    CHECK(scheme_mem_no_free(m) == false);
+    CHECK(lsp_mem_no_free(m) == false);
 
-    return scheme_mem_alloc(m);
+    return lsp_mem_alloc(m);
 }
 
-void scheme_mem_init(scheme_mem *m) {
+void lsp_mem_init(lsp_mem *m) {
     TRACE("Initializing heap...");
 
     m->free_list = NULL;
-    scheme_mem_force_unmark_all(m);
-    scheme_mem_collect(m);
+    lsp_mem_force_unmark_all(m);
+    lsp_mem_collect(m);
 }
 
-void scheme_context_push_env(scheme_context *ctx, scheme_obj *env);
+void lsp_context_push_env(lsp_context *ctx, lsp_obj *env);
 
-static scheme_context * scheme_context_create() {
-    scheme_context *c = scheme_alloc(sizeof(scheme_context));
-    scheme_mem_init(&c->mem);
+static lsp_context * lsp_context_create() {
+    lsp_context *c = lsp_alloc(sizeof(lsp_context));
+    lsp_mem_init(&c->mem);
 
-    c->env_top = scheme_obj_nil();
+    c->env_top = lsp_obj_nil();
     return c;
 }
 
-static void scheme_context_delete(scheme_context *c) {
-    scheme_free(c);
+static void lsp_context_delete(lsp_context *c) {
+    lsp_free(c);
 }
 
-scheme_context * scheme_init() {
-    scheme_context *c = scheme_context_create();
-    scheme_context_push_env(c, scheme_env_create(
-                                scheme_read("(+ - * t nil)", c),
-                                scheme_read("(+ - * t ())", c),
+lsp_context * lsp_init() {
+    lsp_context *c = lsp_context_create();
+    lsp_context_push_env(c, lsp_env_create(
+                                lsp_read("(+ - * t nil)", c),
+                                lsp_read("(+ - * t ())", c),
                                 c));
     return c;
 }
 
-void scheme_mem_show_leaks(scheme_mem *m) {
+void lsp_mem_show_leaks(lsp_mem *m) {
     int type_counts[OBJ_TYPE_MAX_] = {0};
     int malformed = 0;
-    for (int i = 0; i < SCHEME_HEAP_SIZE; i++) {
-        scheme_obj *o = &m->heap[i];
+    for (int i = 0; i < LSP_HEAP_SIZE; i++) {
+        lsp_obj *o = &m->heap[i];
         if (o->type >= OBJ_TYPE_MAX_ || o->type < 0) {
             malformed++;
-        } else if (! scheme_obj_is_unused(o)) {
+        } else if (! lsp_obj_is_unused(o)) {
             type_counts[o->type]++;
         }
     }
@@ -263,53 +263,53 @@ void scheme_mem_show_leaks(scheme_mem *m) {
     TRACE_NL;
 }
 
-void scheme_mem_shutdown(scheme_context *c) {
-    scheme_mem *m = &c->mem;
-    scheme_obj_mark(c->env_top, UNUSED);
-    scheme_mem_show_leaks(m);
+void lsp_mem_shutdown(lsp_context *c) {
+    lsp_mem *m = &c->mem;
+    lsp_obj_mark(c->env_top, UNUSED);
+    lsp_mem_show_leaks(m);
 }
 
-void scheme_shutdown(scheme_context *c) {
-    scheme_mem_shutdown(c);
-    scheme_context_delete(c);
+void lsp_shutdown(lsp_context *c) {
+    lsp_mem_shutdown(c);
+    lsp_context_delete(c);
 }
 
-scheme_obj * scheme_obj_alloc(scheme_context *ctx) {
-    scheme_obj * o = scheme_mem_get(ctx);
-    scheme_obj_set_mark(o, INTERNAL);
+lsp_obj * lsp_obj_alloc(lsp_context *ctx) {
+    lsp_obj * o = lsp_mem_get(ctx);
+    lsp_obj_set_mark(o, INTERNAL);
     return o;
 }
 
-void scheme_obj_set_mark(scheme_obj *o, scheme_mark_type value) {
+void lsp_obj_set_mark(lsp_obj *o, lsp_mark_type value) {
     o->mark = value;
 }
 
-bool scheme_obj_is_internal(scheme_obj *o) {
+bool lsp_obj_is_internal(lsp_obj *o) {
     return o->mark == INTERNAL;
 }
 
-bool scheme_obj_is_unused(scheme_obj *o) {
+bool lsp_obj_is_unused(lsp_obj *o) {
     return o->mark == UNUSED;
 }
 
-bool scheme_string_equal(const char *s1, const char *s2) {
+bool lsp_string_equal(const char *s1, const char *s2) {
     return strcmp(s1, s2) == 0;
 }
 
-bool scheme_num_equal(long int n1, long int n2) {
+bool lsp_num_equal(long int n1, long int n2) {
     return n1 == n2;
 }
 
-bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
+bool lsp_obj_equal(lsp_obj *o1, lsp_obj *o2) {
     if (o1->type != o2->type)
         return false;
 
     switch (o1->type) {
     case SYMBOL:
     case STRING:
-        return scheme_string_equal(o1->value.str, o2->value.str);
+        return lsp_string_equal(o1->value.str, o2->value.str);
     case NUM:
-        return scheme_num_equal(o1->value.num, o2->value.num);
+        return lsp_num_equal(o1->value.num, o2->value.num);
     default:
         break;
     }
@@ -317,12 +317,12 @@ bool scheme_obj_equal(scheme_obj *o1, scheme_obj *o2) {
     return false;
 }
 
-scheme_obj * scheme_obj_copy(scheme_obj *o, scheme_context *ctx) {
-    if (scheme_obj_is_nil(o)) {
-        return scheme_obj_nil();
+lsp_obj * lsp_obj_copy(lsp_obj *o, lsp_context *ctx) {
+    if (lsp_obj_is_nil(o)) {
+        return lsp_obj_nil();
     }
 
-    scheme_obj *copy = scheme_obj_alloc(ctx);
+    lsp_obj *copy = lsp_obj_alloc(ctx);
 
     copy->type = o->type;
     copy->value = o->value;
@@ -333,15 +333,15 @@ scheme_obj * scheme_obj_copy(scheme_obj *o, scheme_context *ctx) {
     case SYMBOL:
         break;
     case CONS:
-        copy->value.con.car = scheme_obj_copy(scheme_car(o), ctx);
-        copy->value.con.cdr = scheme_obj_copy(scheme_cdr(o), ctx);
+        copy->value.con.car = lsp_obj_copy(lsp_car(o), ctx);
+        copy->value.con.cdr = lsp_obj_copy(lsp_cdr(o), ctx);
         break;
     case QUOTE:
-        copy->value.expr = scheme_obj_copy(o->value.expr, ctx);
+        copy->value.expr = lsp_obj_copy(o->value.expr, ctx);
         break;
     case LAMBDA:
-        copy->value.lambda.args = scheme_obj_copy(o->value.lambda.args, ctx);
-        copy->value.lambda.body = scheme_obj_copy(o->value.lambda.body, ctx);
+        copy->value.lambda.args = lsp_obj_copy(o->value.lambda.args, ctx);
+        copy->value.lambda.body = lsp_obj_copy(o->value.lambda.body, ctx);
         break;
     case ENV:
     default:
@@ -350,9 +350,9 @@ scheme_obj * scheme_obj_copy(scheme_obj *o, scheme_context *ctx) {
     return copy;
 }
 
-scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
-                             scheme_context *ctx) {
-    scheme_obj *o = scheme_obj_alloc(ctx);
+lsp_obj * lsp_obj_cons(lsp_obj *car, lsp_obj *cdr,
+                             lsp_context *ctx) {
+    lsp_obj *o = lsp_obj_alloc(ctx);
 
     o->type = CONS;
     o->value.con.car = car;
@@ -361,223 +361,223 @@ scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
     return o;
 }
 
-scheme_obj * scheme_env_create(scheme_obj *names, scheme_obj *values,
-                               scheme_context *ctx) {
-    scheme_obj *o = scheme_obj_alloc(ctx);
+lsp_obj * lsp_env_create(lsp_obj *names, lsp_obj *values,
+                               lsp_context *ctx) {
+    lsp_obj *o = lsp_obj_alloc(ctx);
 
     o->type = ENV;
 
-    o->value.env.names = names ? names : scheme_obj_nil();
-    o->value.env.values = values ? values : scheme_obj_nil();
+    o->value.env.names = names ? names : lsp_obj_nil();
+    o->value.env.values = values ? values : lsp_obj_nil();
 
     return o;
 }
 
-void scheme_env_add(scheme_env *env, scheme_obj *name, scheme_obj *value,
-                    scheme_context *ctx) {
-    env->names = scheme_obj_cons(name, env->names, ctx);
-    env->values = scheme_obj_cons(value, env->values, ctx);
+void lsp_env_add(lsp_env *env, lsp_obj *name, lsp_obj *value,
+                    lsp_context *ctx) {
+    env->names = lsp_obj_cons(name, env->names, ctx);
+    env->values = lsp_obj_cons(value, env->values, ctx);
 }
 
-scheme_obj * scheme_env_lookup(scheme_obj *env, scheme_obj *name,
-                               scheme_context *ctx) {
-    if (scheme_obj_is_nil(env)) {
-        TRACE("Lookup failed for: %s", scheme_obj_as_string(name));
-        return scheme_obj_nil();
+lsp_obj * lsp_env_lookup(lsp_obj *env, lsp_obj *name,
+                               lsp_context *ctx) {
+    if (lsp_obj_is_nil(env)) {
+        TRACE("Lookup failed for: %s", lsp_obj_as_string(name));
+        return lsp_obj_nil();
     }
      
-    scheme_obj *names = scheme_car(env)->value.env.names;
-    scheme_obj *values = scheme_car(env)->value.env.values;
+    lsp_obj *names = lsp_car(env)->value.env.names;
+    lsp_obj *values = lsp_car(env)->value.env.values;
 
-    while (! scheme_obj_is_nil(names)) {
-        if (scheme_obj_equal(name, scheme_car(names)))
-            return scheme_obj_copy(scheme_car(values), ctx);
+    while (! lsp_obj_is_nil(names)) {
+        if (lsp_obj_equal(name, lsp_car(names)))
+            return lsp_obj_copy(lsp_car(values), ctx);
         
-        names = scheme_cdr(names);
-        values = scheme_cdr(values);
+        names = lsp_cdr(names);
+        values = lsp_cdr(values);
     }
-    return scheme_env_lookup(scheme_cdr(env), name, ctx);
+    return lsp_env_lookup(lsp_cdr(env), name, ctx);
 }
 
-scheme_obj * scheme_obj_num(long int num, scheme_context *ctx) {
-    scheme_obj *o = scheme_obj_alloc(ctx);
+lsp_obj * lsp_obj_num(long int num, lsp_context *ctx) {
+    lsp_obj *o = lsp_obj_alloc(ctx);
     o->type = NUM;
     o->value.num = num;
     return o;
 }
 
-scheme_obj * scheme_obj_string(const char *str, scheme_context *ctx) {
-    scheme_obj *o = scheme_obj_alloc(ctx);
+lsp_obj * lsp_obj_string(const char *str, lsp_context *ctx) {
+    lsp_obj *o = lsp_obj_alloc(ctx);
     o->type = STRING;
-    strncpy(o->value.str, str, SCHEME_STRING_SIZE);
+    strncpy(o->value.str, str, LSP_STRING_SIZE);
     return o;
 }
 
-scheme_obj * scheme_obj_symbol(const char *str, scheme_context *ctx) {
-    scheme_obj *o = scheme_obj_alloc(ctx);
+lsp_obj * lsp_obj_symbol(const char *str, lsp_context *ctx) {
+    lsp_obj *o = lsp_obj_alloc(ctx);
     o->type = SYMBOL;
-    strncpy(o->value.str, str, SCHEME_STRING_SIZE);
+    strncpy(o->value.str, str, LSP_STRING_SIZE);
     return o;
 }
 
-scheme_obj * scheme_obj_quote(scheme_obj *expr, scheme_context *ctx) {
-    scheme_obj *o = scheme_obj_alloc(ctx);
+lsp_obj * lsp_obj_quote(lsp_obj *expr, lsp_context *ctx) {
+    lsp_obj *o = lsp_obj_alloc(ctx);
     o->type = QUOTE;
     o->value.expr = expr;
     return o;
 }
 
-long int scheme_obj_as_num(scheme_obj *o) {
+long int lsp_obj_as_num(lsp_obj *o) {
     CHECK(o->type == NUM);
     return o->value.num;
 }
 
-const char * scheme_obj_as_string(scheme_obj *o) {
+const char * lsp_obj_as_string(lsp_obj *o) {
     CHECK(o->type == STRING || o->type == SYMBOL);
     return o->value.str;
 }
 
-void scheme_obj_delete(scheme_obj *o) {
-    scheme_free(o);
+void lsp_obj_delete(lsp_obj *o) {
+    lsp_free(o);
 }
 
-char * scheme_eat_space(char *txt) {
+char * lsp_eat_space(char *txt) {
     char *pos = txt;
     while (*pos == ' ')
         pos++;
     return pos;
 }
 
-scheme_obj *scheme_truth(bool value, scheme_context *ctx) {
+lsp_obj *lsp_truth(bool value, lsp_context *ctx) {
     if (value)
-        return scheme_obj_symbol("t", ctx);
+        return lsp_obj_symbol("t", ctx);
     else
-        return scheme_obj_nil();
+        return lsp_obj_nil();
 }
 
-char scheme_peek(char *txt) {
+char lsp_peek(char *txt) {
     return txt[0];
 }
 
-bool scheme_is_digit(char c) {
+bool lsp_is_digit(char c) {
     return c >= 48 && c < 58;
 }
 
-scheme_obj * scheme_read_num(char *txt, char **next,
-                             scheme_context *ctx) {
+lsp_obj * lsp_read_num(char *txt, char **next,
+                             lsp_context *ctx) {
     const long int num = strtol(txt, next, 10);
-    return scheme_obj_num(num, ctx);
+    return lsp_obj_num(num, ctx);
 }
 
-char * scheme_make_string(const char *data, int len) {
-    char *s = scheme_alloc(sizeof(char) * len + 1);
+char * lsp_make_string(const char *data, int len) {
+    char *s = lsp_alloc(sizeof(char) * len + 1);
     memcpy(s, data, len);
     s[len] = '\0';
     return s;
 }
 
-scheme_obj * scheme_read_symbol(char *txt, char **next,
-                                scheme_context *ctx) {
+lsp_obj * lsp_read_symbol(char *txt, char **next,
+                                lsp_context *ctx) {
     size_t span = strcspn(txt, " )");
 
     /* FIXME: Memory leak */
-    char *s = scheme_make_string(txt, span);
+    char *s = lsp_make_string(txt, span);
 
     *next = txt + span;
     
-    scheme_obj *o = scheme_obj_symbol(s, ctx);
-    scheme_free(s);
+    lsp_obj *o = lsp_obj_symbol(s, ctx);
+    lsp_free(s);
     return o;
 }
 
-scheme_obj * scheme_read_string(char *txt, char **next,
-                                scheme_context *ctx) {
+lsp_obj * lsp_read_string(char *txt, char **next,
+                                lsp_context *ctx) {
     txt++;
     size_t span = strcspn(txt, "\"");
-    char *s = scheme_make_string(txt, span);
+    char *s = lsp_make_string(txt, span);
 
     *next = txt + span + 1;
 
-    scheme_obj *o = scheme_obj_string(s, ctx);
+    lsp_obj *o = lsp_obj_string(s, ctx);
     free(s);
     return o;
 }
 
-scheme_obj * scheme_read_list_inner(char *txt, char **next,
-                                    scheme_context *ctx) {
-    scheme_obj *car = scheme_read_obj(txt, next, ctx);
-    txt = scheme_eat_space(*next);
+lsp_obj * lsp_read_list_inner(char *txt, char **next,
+                                    lsp_context *ctx) {
+    lsp_obj *car = lsp_read_obj(txt, next, ctx);
+    txt = lsp_eat_space(*next);
     
-    scheme_obj *cdr = NULL;
+    lsp_obj *cdr = NULL;
     
-    if (scheme_peek(txt) == ')') {
-        cdr = scheme_obj_nil();
+    if (lsp_peek(txt) == ')') {
+        cdr = lsp_obj_nil();
         *next = txt + 1;
     } else {
-        cdr = scheme_read_list_inner(txt, next, ctx);
+        cdr = lsp_read_list_inner(txt, next, ctx);
     }
 
-    return scheme_obj_cons(car, cdr, ctx);
+    return lsp_obj_cons(car, cdr, ctx);
 }
 
-scheme_obj * scheme_read_list(char *txt, char **next,
-                              scheme_context *ctx) {
+lsp_obj * lsp_read_list(char *txt, char **next,
+                              lsp_context *ctx) {
     txt++;
-    txt = scheme_eat_space(txt);
+    txt = lsp_eat_space(txt);
 
-    scheme_obj *res = NULL;
+    lsp_obj *res = NULL;
         
-    if (scheme_peek(txt) == ')') {
-        res = scheme_obj_nil();
+    if (lsp_peek(txt) == ')') {
+        res = lsp_obj_nil();
         *next = txt + 1;
     } else {
-        res = scheme_read_list_inner(txt, next, ctx);
+        res = lsp_read_list_inner(txt, next, ctx);
     }
     
     return res;
 }
 
 
-scheme_obj * scheme_read_quote(char *txt, char **next, scheme_context *ctx) {
+lsp_obj * lsp_read_quote(char *txt, char **next, lsp_context *ctx) {
     txt++;
-    scheme_obj *expr = scheme_read_obj(txt, next, ctx);
-    return scheme_obj_quote(expr, ctx);
+    lsp_obj *expr = lsp_read_obj(txt, next, ctx);
+    return lsp_obj_quote(expr, ctx);
 }
 
-scheme_obj * scheme_read_obj(char *txt, char **next,
-                             scheme_context *ctx) {
+lsp_obj * lsp_read_obj(char *txt, char **next,
+                             lsp_context *ctx) {
     CHECK(*next != NULL);
     
-    txt = scheme_eat_space(txt);
-    scheme_obj *obj = NULL;
+    txt = lsp_eat_space(txt);
+    lsp_obj *obj = NULL;
 
-    char next_char = scheme_peek(txt);
+    char next_char = lsp_peek(txt);
     if (next_char == '(') {
-        obj = scheme_read_list(txt, next, ctx);
+        obj = lsp_read_list(txt, next, ctx);
     } else if (next_char == '\"') {
-        obj = scheme_read_string(txt, next, ctx);
-    } else if (scheme_is_digit(next_char)) {
-        obj = scheme_read_num(txt, next, ctx);
+        obj = lsp_read_string(txt, next, ctx);
+    } else if (lsp_is_digit(next_char)) {
+        obj = lsp_read_num(txt, next, ctx);
     } else if (next_char == '\'') {
-        obj = scheme_read_quote(txt, next, ctx);
+        obj = lsp_read_quote(txt, next, ctx);
     } else {
-        obj = scheme_read_symbol(txt, next, ctx);
+        obj = lsp_read_symbol(txt, next, ctx);
     }
 
     return obj;
 }
 
-scheme_obj * scheme_read(char *txt, scheme_context *ctx) {
+lsp_obj * lsp_read(char *txt, lsp_context *ctx) {
     char *next = "";
-    return scheme_read_obj(txt, &next, ctx);
+    return lsp_read_obj(txt, &next, ctx);
 }
 
-char * scheme_print_num(scheme_obj *o, char *buf) {
+char * lsp_print_num(lsp_obj *o, char *buf) {
     int written = sprintf(buf, "%ld", o->value.num);
     return buf + written;
 }
 
-char * scheme_print_symbol(scheme_obj *o, char *buf) {
+char * lsp_print_symbol(lsp_obj *o, char *buf) {
     CHECK(o->type == SYMBOL);
     
     const char *str = o->value.str;
@@ -587,25 +587,25 @@ char * scheme_print_symbol(scheme_obj *o, char *buf) {
     return buf + len;
 }
 
-char * scheme_print_string(scheme_obj *o, char *buf) {
+char * lsp_print_string(lsp_obj *o, char *buf) {
     CHECK(o->type == STRING);
 
     int len = sprintf(buf, "\"%s\"", o->value.str);
     return buf + len;
 }
 
-char * scheme_print_quote(scheme_obj *o, char *buf) {
+char * lsp_print_quote(lsp_obj *o, char *buf) {
     sprintf(buf++, "\'");
-    return scheme_print_obj(o->value.expr, buf);
+    return lsp_print_obj(o->value.expr, buf);
 }
 
-char * scheme_print_list(scheme_obj *o, char *buf) {
+char * lsp_print_list(lsp_obj *o, char *buf) {
     sprintf(buf, "(");
     buf++;
 
-    scheme_obj *cur = o;
+    lsp_obj *cur = o;
     while (1) {
-        if (scheme_obj_is_nil(cur)) {
+        if (lsp_obj_is_nil(cur)) {
             sprintf(buf++, ")");
             break;
         } else if (cur != o) {
@@ -614,49 +614,49 @@ char * scheme_print_list(scheme_obj *o, char *buf) {
 
         if (cur->type != CONS) {
             buf += sprintf(buf, ". ");
-            buf = scheme_print_obj(cur, buf);
-            cur = scheme_obj_nil();
+            buf = lsp_print_obj(cur, buf);
+            cur = lsp_obj_nil();
         } else {
-            buf = scheme_print_obj(cur->value.con.car, buf);
+            buf = lsp_print_obj(cur->value.con.car, buf);
             cur = cur->value.con.cdr;
         }
     }
     return buf;
 }
 
-char * scheme_print_nil(char *buf) {
+char * lsp_print_nil(char *buf) {
     sprintf(buf, "nil");
     return buf + 3;
 }
 
-char * scheme_print_lambda(scheme_obj *o, char *buf) {
+char * lsp_print_lambda(lsp_obj *o, char *buf) {
     return buf + sprintf(buf, "lambda");
 }
 
-char * scheme_print_obj(scheme_obj *obj, char *buf) {
+char * lsp_print_obj(lsp_obj *obj, char *buf) {
     char *next = buf;
     
     switch (obj->type) {
     case STRING:
-        next = scheme_print_string(obj, buf);
+        next = lsp_print_string(obj, buf);
         break;
     case NUM:
-        next = scheme_print_num(obj, buf);
+        next = lsp_print_num(obj, buf);
         break;
     case CONS:
-        next = scheme_print_list(obj, buf);
+        next = lsp_print_list(obj, buf);
         break;
     case NIL:
-        next = scheme_print_nil(buf);
+        next = lsp_print_nil(buf);
         break;
     case SYMBOL:
-        next = scheme_print_symbol(obj, buf);
+        next = lsp_print_symbol(obj, buf);
         break;
     case QUOTE:
-        next = scheme_print_quote(obj, buf);
+        next = lsp_print_quote(obj, buf);
         break;
     case LAMBDA:
-        next = scheme_print_lambda(obj, buf);
+        next = lsp_print_lambda(obj, buf);
         break;
     default:
         SHOULD_NEVER_BE_HERE;
@@ -664,190 +664,189 @@ char * scheme_print_obj(scheme_obj *obj, char *buf) {
     return next;
 }
 
-char * scheme_print(scheme_obj *obj) {
+char * lsp_print(lsp_obj *obj) {
     static char buf[256];
-    char * next = scheme_print_obj(obj, buf);
+    char * next = lsp_print_obj(obj, buf);
     *next = '\0';
     return buf;
 }
 
 
-scheme_obj * scheme_eval_quote(scheme_obj *o, scheme_context *ctx) {
-    return scheme_obj_copy(o->value.expr, ctx);
+lsp_obj * lsp_eval_quote(lsp_obj *o, lsp_context *ctx) {
+    return lsp_obj_copy(o->value.expr, ctx);
 }
 
-scheme_obj * scheme_primitive_mul(scheme_obj *args, scheme_context *ctx) {
-    scheme_obj *cur = args;
+lsp_obj * lsp_primitive_mul(lsp_obj *args, lsp_context *ctx) {
+    lsp_obj *cur = args;
     unsigned int prod = 1;
 
-    while (! scheme_obj_is_nil(cur)) {
-        prod = prod * scheme_obj_as_num(scheme_car(cur));
-        cur = scheme_cdr(cur);
+    while (! lsp_obj_is_nil(cur)) {
+        prod = prod * lsp_obj_as_num(lsp_car(cur));
+        cur = lsp_cdr(cur);
     }
 
-    return scheme_obj_num(prod, ctx);
+    return lsp_obj_num(prod, ctx);
 }
 
-scheme_obj * scheme_primitive_add(scheme_obj *args, scheme_context *ctx) {
-    scheme_obj *cur = args;
+lsp_obj * lsp_primitive_add(lsp_obj *args, lsp_context *ctx) {
+    lsp_obj *cur = args;
     long int sum = 0;
     
-    while(! scheme_obj_is_nil(cur)) {
-        sum += scheme_obj_as_num(scheme_car(cur));
-        cur = scheme_cdr(cur);
+    while(! lsp_obj_is_nil(cur)) {
+        sum += lsp_obj_as_num(lsp_car(cur));
+        cur = lsp_cdr(cur);
     }
 
-    return scheme_obj_num(sum, ctx);
+    return lsp_obj_num(sum, ctx);
 }
 
-scheme_obj * scheme_primitive_sub(scheme_obj *args, scheme_context *ctx) {
-    long int sum = scheme_obj_as_num(scheme_car(args));
-    scheme_obj *cur = scheme_cdr(args);
+lsp_obj * lsp_primitive_sub(lsp_obj *args, lsp_context *ctx) {
+    long int sum = lsp_obj_as_num(lsp_car(args));
+    lsp_obj *cur = lsp_cdr(args);
     
-    while(! scheme_obj_is_nil(cur)) {
-        sum -= scheme_obj_as_num(scheme_car(cur));
-        cur = scheme_cdr(cur);
+    while(! lsp_obj_is_nil(cur)) {
+        sum -= lsp_obj_as_num(lsp_car(cur));
+        cur = lsp_cdr(cur);
     }
 
-    return scheme_obj_num(sum, ctx);
+    return lsp_obj_num(sum, ctx);
 }
 
-scheme_obj * scheme_fallback_proc(scheme_obj *args, scheme_context *ctx) {
+lsp_obj * lsp_fallback_proc(lsp_obj *args, lsp_context *ctx) {
     SHOULD_NEVER_BE_HERE;
-    return scheme_obj_nil();
+    return lsp_obj_nil();
 }
 
-typedef scheme_obj * (*proc_ptr)(scheme_obj *, scheme_context *);
+typedef lsp_obj * (*proc_ptr)(lsp_obj *, lsp_context *);
 
-proc_ptr scheme_get_proc(const char *name) {
+proc_ptr lsp_get_proc(const char *name) {
     if (strcmp(name, "+") == 0)
-        return scheme_primitive_add;
+        return lsp_primitive_add;
     if (strcmp(name, "-") == 0)
-        return scheme_primitive_sub;
+        return lsp_primitive_sub;
     if (strcmp(name, "*") == 0)
-        return scheme_primitive_mul;
+        return lsp_primitive_mul;
     
-    return scheme_fallback_proc;
+    return lsp_fallback_proc;
 }
 
 
-scheme_obj * scheme_eval_seq(scheme_obj *seq, scheme_context *ctx) {
-    if (scheme_obj_is_nil(seq)) {
-        return scheme_obj_nil();
+lsp_obj * lsp_eval_seq(lsp_obj *seq, lsp_context *ctx) {
+    if (lsp_obj_is_nil(seq)) {
+        return lsp_obj_nil();
     } else {
-        return scheme_obj_cons(scheme_eval(scheme_car(seq), ctx),
-                               scheme_eval_seq(scheme_cdr(seq), ctx),
+        return lsp_obj_cons(lsp_eval(lsp_car(seq), ctx),
+                               lsp_eval_seq(lsp_cdr(seq), ctx),
                                ctx);
     }
 }
 
-bool scheme_is_true(scheme_obj *value) {
-    return ! scheme_obj_is_nil(value);
+bool lsp_is_true(lsp_obj *value) {
+    return ! lsp_obj_is_nil(value);
 }
 
-scheme_obj * scheme_if(scheme_obj *args,
-                       scheme_context *ctx) {
-    scheme_obj *pred = scheme_eval(scheme_car(args), ctx);
+lsp_obj * lsp_if(lsp_obj *args,
+                       lsp_context *ctx) {
+    lsp_obj *pred = lsp_eval(lsp_car(args), ctx);
     
-    scheme_obj *then_clause = scheme_car(scheme_cdr(args));
-    scheme_obj *else_clause = scheme_car(scheme_cdr(scheme_cdr(args)));
+    lsp_obj *then_clause = lsp_car(lsp_cdr(args));
+    lsp_obj *else_clause = lsp_car(lsp_cdr(lsp_cdr(args)));
 
-    scheme_obj *res = scheme_obj_nil();
+    lsp_obj *res = lsp_obj_nil();
     
-    if (scheme_is_true(pred))
-        res = scheme_eval(then_clause, ctx);
+    if (lsp_is_true(pred))
+        res = lsp_eval(then_clause, ctx);
     else
-        res = scheme_eval(else_clause, ctx);
+        res = lsp_eval(else_clause, ctx);
 
-    scheme_obj_mark(pred, UNUSED);
+    lsp_obj_mark(pred, UNUSED);
     return res;
 }
 
-scheme_obj * scheme_list(scheme_obj *objs, scheme_context *ctx) {
-    return scheme_eval_seq(objs, ctx);
+lsp_obj * lsp_list(lsp_obj *objs, lsp_context *ctx) {
+    return lsp_eval_seq(objs, ctx);
 }
 
-void scheme_eval_bindings(scheme_obj *bindings, scheme_context *ctx) {
-    scheme_obj *cur = bindings;
-    while (! scheme_obj_is_nil(cur)) {
-        scheme_obj *name = scheme_car(scheme_car(cur));
-        scheme_obj *value = scheme_eval(
-            scheme_car(scheme_cdr(scheme_car(cur))), ctx);
-        scheme_env_add(&(scheme_car(ctx->env_top)->value.env),
+void lsp_eval_bindings(lsp_obj *bindings, lsp_context *ctx) {
+    lsp_obj *cur = bindings;
+    while (! lsp_obj_is_nil(cur)) {
+        lsp_obj *name = lsp_car(lsp_car(cur));
+        lsp_obj *value = lsp_eval(
+            lsp_car(lsp_cdr(lsp_car(cur))), ctx);
+        lsp_env_add(&(lsp_car(ctx->env_top)->value.env),
                        name, value, ctx);
 
-        cur = scheme_cdr(cur);
+        cur = lsp_cdr(cur);
     }
 }
 
 
-void scheme_context_push_env(scheme_context *ctx, scheme_obj *env) {
-    ctx->env_top = scheme_obj_cons((env ?
+void lsp_context_push_env(lsp_context *ctx, lsp_obj *env) {
+    ctx->env_top = lsp_obj_cons((env ?
                                     env :
-                                    scheme_env_create(NULL, NULL, ctx)),
+                                    lsp_env_create(NULL, NULL, ctx)),
                                    ctx->env_top,
                                    ctx);
 }
 
-void scheme_context_pop_env(scheme_context *ctx) {
-    scheme_obj *env = ctx->env_top;
-    scheme_obj_mark(env, UNUSED);
-    ctx->env_top = scheme_cdr(env);
+void lsp_context_pop_env(lsp_context *ctx) {
+    lsp_obj *env = ctx->env_top;
+    lsp_obj_mark(env, UNUSED);
+    ctx->env_top = lsp_cdr(env);
 }
 
-scheme_obj * scheme_eval_body(scheme_obj *b, scheme_context *ctx) {
-    scheme_obj *cur = b;
-    scheme_obj *res = NULL;
-    while (! scheme_obj_is_nil(cur)) {
-        res = scheme_eval(scheme_car(cur), ctx);
-        cur = scheme_cdr(cur);
+lsp_obj * lsp_eval_body(lsp_obj *b, lsp_context *ctx) {
+    lsp_obj *cur = b;
+    lsp_obj *res = NULL;
+    while (! lsp_obj_is_nil(cur)) {
+        res = lsp_eval(lsp_car(cur), ctx);
+        cur = lsp_cdr(cur);
     }
     return res;
 }
 
-scheme_obj * scheme_apply(scheme_obj *proc, scheme_obj * args,
-                          scheme_context *ctx) {
-    scheme_obj *res = NULL;
+lsp_obj * lsp_apply(lsp_obj *proc, lsp_obj * args,
+                          lsp_context *ctx) {
+    lsp_obj *res = NULL;
     
     if (proc->type == LAMBDA) {
-        scheme_context_push_env(ctx,
-                                scheme_env_create(proc->value.lambda.args,
+        lsp_context_push_env(ctx,
+                                lsp_env_create(proc->value.lambda.args,
                                                   args,
                                                   ctx));
-        res = scheme_eval_body(proc->value.lambda.body, ctx);
-        scheme_context_pop_env(ctx);
+        res = lsp_eval_body(proc->value.lambda.body, ctx);
+        lsp_context_pop_env(ctx);
     } else {
-        const char *proc_name = scheme_obj_as_string(proc);
-        res =  (*scheme_get_proc(proc_name))(args, ctx);
+        const char *proc_name = lsp_obj_as_string(proc);
+        res =  (*lsp_get_proc(proc_name))(args, ctx);
     }
     return res;
 }
 
-scheme_obj * scheme_let(scheme_obj *args, scheme_context *ctx) {
-    scheme_obj *bindings = scheme_car(args);
-    scheme_obj *body = scheme_cdr(args);
+lsp_obj * lsp_let(lsp_obj *args, lsp_context *ctx) {
+    lsp_obj *bindings = lsp_car(args);
+    lsp_obj *body = lsp_cdr(args);
 
-    scheme_context_push_env(ctx, NULL);
-    scheme_eval_bindings(bindings, ctx);
+    lsp_context_push_env(ctx, NULL);
+    lsp_eval_bindings(bindings, ctx);
 
-    scheme_obj *res = scheme_eval_body(body, ctx);
+    lsp_obj *res = lsp_eval_body(body, ctx);
 
-    scheme_context_pop_env(ctx);
+    lsp_context_pop_env(ctx);
     return res;
 }
 
-scheme_obj * scheme_set(scheme_obj *name, scheme_obj *value,
-                        scheme_context *ctx) {
-
-    scheme_env_add(&scheme_car(ctx->env_top)->value.env, name, value, ctx);
+lsp_obj * lsp_set(lsp_obj *name, lsp_obj *value,
+                        lsp_context *ctx) {
+    lsp_env_add(&lsp_car(ctx->env_top)->value.env, name, value, ctx);
     return value;
 }
 
-scheme_obj * scheme_obj_lambda(scheme_obj *o, scheme_context *ctx) {
-    scheme_obj *args = scheme_obj_copy(scheme_car(o), ctx);
-    scheme_obj *body = scheme_obj_copy(scheme_cdr(o), ctx);
+lsp_obj * lsp_obj_lambda(lsp_obj *o, lsp_context *ctx) {
+    lsp_obj *args = lsp_obj_copy(lsp_car(o), ctx);
+    lsp_obj *body = lsp_obj_copy(lsp_cdr(o), ctx);
 
-    scheme_obj *l = scheme_obj_alloc(ctx);
+    lsp_obj *l = lsp_obj_alloc(ctx);
     l->type = LAMBDA;
     l->value.lambda.args = args;
     l->value.lambda.body = body;
@@ -855,17 +854,17 @@ scheme_obj * scheme_obj_lambda(scheme_obj *o, scheme_context *ctx) {
     return l;
 }
 
-scheme_obj * scheme_defun(scheme_obj *o, scheme_context *ctx) {
-    scheme_obj *name = scheme_obj_copy(scheme_car(o), ctx);
-    scheme_obj *proc = scheme_obj_lambda(scheme_cdr(o), ctx);
+lsp_obj * lsp_defun(lsp_obj *o, lsp_context *ctx) {
+    lsp_obj *name = lsp_obj_copy(lsp_car(o), ctx);
+    lsp_obj *proc = lsp_obj_lambda(lsp_cdr(o), ctx);
 
-    scheme_set(name, proc, ctx);
+    lsp_set(name, proc, ctx);
     return name;
 }
 
 #define MAX_FILE_SIZE 10000
-char * scheme_load_file(scheme_obj *args, scheme_context *ctx) {
-    const char *file_name = scheme_obj_as_string(scheme_car(args));
+char * lsp_load_file(lsp_obj *args, lsp_context *ctx) {
+    const char *file_name = lsp_obj_as_string(lsp_car(args));
     static char buf[MAX_FILE_SIZE];
 
     FILE *fp = fopen(file_name, "r");
@@ -887,89 +886,89 @@ char * scheme_load_file(scheme_obj *args, scheme_context *ctx) {
     return NULL;
 }
 
-scheme_obj * scheme_eval_cons(scheme_obj *o, scheme_context *ctx) {
-    scheme_obj *res = NULL;
-    const char *op = scheme_obj_as_string(scheme_car(o));
-    scheme_obj *args = scheme_cdr(o);
+lsp_obj * lsp_eval_cons(lsp_obj *o, lsp_context *ctx) {
+    lsp_obj *res = NULL;
+    const char *op = lsp_obj_as_string(lsp_car(o));
+    lsp_obj *args = lsp_cdr(o);
     
-    if (scheme_string_equal(op, "if")) {
-        res = scheme_if(scheme_cdr(o), ctx);
-    } else if (scheme_string_equal(op, "list")) {
-        res = scheme_list(scheme_cdr(o), ctx);
-    } else if (scheme_string_equal(op, "let")) {
-        res = scheme_let(scheme_cdr(o), ctx);
-    } else if (scheme_string_equal(op, "set")) {
-        scheme_obj *args = scheme_cdr(o);
-        scheme_obj *name = scheme_eval(scheme_car(args), ctx);
-        scheme_obj *value = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
-        res = scheme_set(name, value, ctx);
-    } else if (scheme_string_equal(op, "lambda")) {
-        res = scheme_obj_lambda(args, ctx);
-    } else if (scheme_string_equal(op, "defun")) {
-        res = scheme_defun(scheme_cdr(o), ctx);
-    } else if (scheme_string_equal(op, "progn")) {
-        res = scheme_eval_body(scheme_cdr(o), ctx);
-    } else if (scheme_string_equal(op, "cons")) {
-        scheme_obj *car = scheme_eval(scheme_car(args), ctx);
-        scheme_obj *cdr = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
-        res = scheme_obj_cons(car, cdr, ctx);
-    } else if (scheme_string_equal(op, "car")) {
-        scheme_obj *e = scheme_eval(scheme_car(args), ctx);
-        res = scheme_car(e);
-        e->value.con.car = scheme_obj_nil();
-        scheme_obj_mark(e, UNUSED);
-    } else if (scheme_string_equal(op, "cdr")) {
-        scheme_obj *e = scheme_eval(scheme_car(args), ctx);
-        res = scheme_cdr(e);
-        e->value.con.cdr = scheme_obj_nil();
-        scheme_obj_mark(e, UNUSED);
-    } else if (scheme_string_equal(op, "equal")) {
-        scheme_obj *a = scheme_eval(scheme_car(args), ctx);
-        scheme_obj *b = scheme_eval(scheme_car(scheme_cdr(args)), ctx);
-        res = scheme_truth(scheme_obj_equal(a, b), ctx);
-        scheme_obj_mark(a, UNUSED);
-        scheme_obj_mark(b, UNUSED);
-    } else if (scheme_string_equal(op, "load")) {
-        char *code = scheme_load_file(args, ctx);
-        scheme_obj *ro = scheme_read(code, ctx);
-        scheme_obj *eo = scheme_eval(ro, ctx);
-        scheme_obj_mark(ro, UNUSED);
+    if (lsp_string_equal(op, "if")) {
+        res = lsp_if(lsp_cdr(o), ctx);
+    } else if (lsp_string_equal(op, "list")) {
+        res = lsp_list(lsp_cdr(o), ctx);
+    } else if (lsp_string_equal(op, "let")) {
+        res = lsp_let(lsp_cdr(o), ctx);
+    } else if (lsp_string_equal(op, "set")) {
+        lsp_obj *args = lsp_cdr(o);
+        lsp_obj *name = lsp_eval(lsp_car(args), ctx);
+        lsp_obj *value = lsp_eval(lsp_car(lsp_cdr(args)), ctx);
+        res = lsp_set(name, value, ctx);
+    } else if (lsp_string_equal(op, "lambda")) {
+        res = lsp_obj_lambda(args, ctx);
+    } else if (lsp_string_equal(op, "defun")) {
+        res = lsp_defun(lsp_cdr(o), ctx);
+    } else if (lsp_string_equal(op, "progn")) {
+        res = lsp_eval_body(lsp_cdr(o), ctx);
+    } else if (lsp_string_equal(op, "cons")) {
+        lsp_obj *car = lsp_eval(lsp_car(args), ctx);
+        lsp_obj *cdr = lsp_eval(lsp_car(lsp_cdr(args)), ctx);
+        res = lsp_obj_cons(car, cdr, ctx);
+    } else if (lsp_string_equal(op, "car")) {
+        lsp_obj *e = lsp_eval(lsp_car(args), ctx);
+        res = lsp_car(e);
+        e->value.con.car = lsp_obj_nil();
+        lsp_obj_mark(e, UNUSED);
+    } else if (lsp_string_equal(op, "cdr")) {
+        lsp_obj *e = lsp_eval(lsp_car(args), ctx);
+        res = lsp_cdr(e);
+        e->value.con.cdr = lsp_obj_nil();
+        lsp_obj_mark(e, UNUSED);
+    } else if (lsp_string_equal(op, "equal")) {
+        lsp_obj *a = lsp_eval(lsp_car(args), ctx);
+        lsp_obj *b = lsp_eval(lsp_car(lsp_cdr(args)), ctx);
+        res = lsp_truth(lsp_obj_equal(a, b), ctx);
+        lsp_obj_mark(a, UNUSED);
+        lsp_obj_mark(b, UNUSED);
+    } else if (lsp_string_equal(op, "load")) {
+        char *code = lsp_load_file(args, ctx);
+        lsp_obj *ro = lsp_read(code, ctx);
+        lsp_obj *eo = lsp_eval(ro, ctx);
+        lsp_obj_mark(ro, UNUSED);
         res = eo;
     } else {
-        scheme_obj *proc = scheme_eval(scheme_car(o), ctx);
-        scheme_obj *args = scheme_eval_seq(scheme_cdr(o), ctx);
-        res = scheme_apply(proc, args, ctx);
-        scheme_obj_mark(proc, UNUSED);
-        scheme_obj_mark(args, UNUSED);
+        lsp_obj *proc = lsp_eval(lsp_car(o), ctx);
+        lsp_obj *args = lsp_eval_seq(lsp_cdr(o), ctx);
+        res = lsp_apply(proc, args, ctx);
+        lsp_obj_mark(proc, UNUSED);
+        lsp_obj_mark(args, UNUSED);
     }
     return res;
 }
 
-scheme_obj * scheme_eval_symbol(scheme_obj *name, scheme_context *ctx) {
-    scheme_obj *value = scheme_env_lookup(ctx->env_top, name, ctx);
+lsp_obj * lsp_eval_symbol(lsp_obj *name, lsp_context *ctx) {
+    lsp_obj *value = lsp_env_lookup(ctx->env_top, name, ctx);
     return value;
 }
 
-scheme_obj * scheme_eval(scheme_obj *expr, scheme_context *ctx) {
-    scheme_obj *res = scheme_obj_nil();
+lsp_obj * lsp_eval(lsp_obj *expr, lsp_context *ctx) {
+    lsp_obj *res = lsp_obj_nil();
     
     switch (expr->type) {
     case SYMBOL:
-        res = scheme_eval_symbol(expr, ctx);
+        res = lsp_eval_symbol(expr, ctx);
         break;
     case STRING:
     case NUM:
         res = expr;
         break;
     case CONS:
-        if (! scheme_obj_is_nil(expr))
-            res = scheme_eval_cons(expr, ctx);
+        if (! lsp_obj_is_nil(expr))
+            res = lsp_eval_cons(expr, ctx);
         break;
     case NIL:
-        res = scheme_obj_nil();
+        res = lsp_obj_nil();
         break;
     case QUOTE:
-        res = scheme_eval_quote(expr, ctx);
+        res = lsp_eval_quote(expr, ctx);
         break;
     default:
         SHOULD_NEVER_BE_HERE;

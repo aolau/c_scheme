@@ -1,45 +1,45 @@
-#ifndef _SCHEME_H_
-#define _SCHEME_H_
+#ifndef _LSP_H_
+#define _LSP_H_
 
 #include <stddef.h>
 #include <stdbool.h>
 
-typedef struct scheme_obj scheme_obj;
-typedef struct scheme_context scheme_context;
+typedef struct lsp_obj lsp_obj;
+typedef struct lsp_context lsp_context;
 
-typedef enum scheme_mark_type_ {UNUSED = 1, EXTERNAL, INTERNAL} scheme_mark_type;
+typedef enum lsp_mark_type_ {UNUSED = 1, EXTERNAL, INTERNAL} lsp_mark_type;
 
-scheme_context * scheme_init();
-void scheme_shutdown(scheme_context *c);
+lsp_context * lsp_init();
+void lsp_shutdown(lsp_context *c);
 
-scheme_obj * scheme_env_create(scheme_obj *names, scheme_obj *values,
-                               scheme_context *ctx);
-void scheme_context_push_env(scheme_context *c, scheme_obj *e);
+lsp_obj * lsp_env_create(lsp_obj *names, lsp_obj *values,
+                               lsp_context *ctx);
+void lsp_context_push_env(lsp_context *c, lsp_obj *e);
 
-long int scheme_obj_as_num(scheme_obj *o);
-const char * scheme_obj_as_string(scheme_obj *o);
+long int lsp_obj_as_num(lsp_obj *o);
+const char * lsp_obj_as_string(lsp_obj *o);
 
-scheme_obj * scheme_obj_num(long int val, scheme_context *ctx);
-scheme_obj * scheme_obj_cons(scheme_obj *car, scheme_obj *cdr,
-                             scheme_context *ctx);
+lsp_obj * lsp_obj_num(long int val, lsp_context *ctx);
+lsp_obj * lsp_obj_cons(lsp_obj *car, lsp_obj *cdr,
+                             lsp_context *ctx);
 
-void scheme_obj_delete(scheme_obj *o);
+void lsp_obj_delete(lsp_obj *o);
 
-int scheme_obj_mark(scheme_obj *o, scheme_mark_type mark);
+int lsp_obj_mark(lsp_obj *o, lsp_mark_type mark);
     
-scheme_obj * scheme_read(char *txt, scheme_context *ctx);
+lsp_obj * lsp_read(char *txt, lsp_context *ctx);
 
-char * scheme_print(scheme_obj *o);
+char * lsp_print(lsp_obj *o);
 
-scheme_obj * scheme_eval(scheme_obj *expr, scheme_context *ctx);
+lsp_obj * lsp_eval(lsp_obj *expr, lsp_context *ctx);
 
 /* private - TODO: Move to other header? */
-scheme_obj * scheme_read_obj(char *txt, char **next, scheme_context *ctx);
-char * scheme_print_obj(scheme_obj *obj, char *buf);
-scheme_obj * scheme_obj_nil();
+lsp_obj * lsp_read_obj(char *txt, char **next, lsp_context *ctx);
+char * lsp_print_obj(lsp_obj *obj, char *buf);
+lsp_obj * lsp_obj_nil();
 
-char * scheme_eat_space(char *txt);
-char scheme_peek(char *txt);
-bool scheme_is_digit(char c);
+char * lsp_eat_space(char *txt);
+char lsp_peek(char *txt);
+bool lsp_is_digit(char c);
 
-#endif /* _SCHEME_H_ */
+#endif /* _LSP_H_ */

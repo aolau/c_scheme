@@ -2,19 +2,19 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#include "scheme.h"
+#include "lsp.h"
 
-static void load_library(scheme_context *ctx) {
+static void load_library(lsp_context *ctx) {
     printf("loading library bs.lsp...\n");
-    scheme_obj *ro = scheme_read("(load \"bs.lsp\")", ctx);
-    scheme_obj *eo = scheme_eval(ro, ctx);
-    scheme_obj_mark(ro, UNUSED);
+    lsp_obj *ro = lsp_read("(load \"bs.lsp\")", ctx);
+    lsp_obj *eo = lsp_eval(ro, ctx);
+    lsp_obj_mark(ro, UNUSED);
 }
 
 int main() {
     printf("-- Welcome to LSP! --\n\n");
     
-    scheme_context *ctx = scheme_init();
+    lsp_context *ctx = lsp_init();
     load_library(ctx);
     
     while (1) {
@@ -25,16 +25,16 @@ int main() {
 
         add_history(line);
         
-        scheme_obj *ro = scheme_read(line, ctx);
-        scheme_obj *eo = scheme_eval(ro, ctx);
+        lsp_obj *ro = lsp_read(line, ctx);
+        lsp_obj *eo = lsp_eval(ro, ctx);
 
-        char *res = scheme_print(eo);
+        char *res = lsp_print(eo);
         printf(": %s\n", res);
         
-        scheme_obj_mark(ro, UNUSED);
-        scheme_obj_mark(eo, UNUSED);
+        lsp_obj_mark(ro, UNUSED);
+        lsp_obj_mark(eo, UNUSED);
     }
     
-    scheme_shutdown(ctx);
+    lsp_shutdown(ctx);
     return 1;
 }
