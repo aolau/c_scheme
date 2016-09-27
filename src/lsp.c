@@ -24,8 +24,8 @@ typedef struct lsp_cons {
 } lsp_cons;
 
 enum lsp_obj_type {FREELIST, NIL, SYMBOL, STRING, NUM, CONS,
-                      QUOTE, ENV, LAMBDA,
-                      OBJ_TYPE_MAX_};
+                   QUOTE, ENV, LAMBDA,
+                   OBJ_TYPE_MAX_};
 
 const char * obj_type_to_str(int t) {
     static char *str[] = {
@@ -235,9 +235,9 @@ static void lsp_context_delete(lsp_context *c) {
 lsp_context * lsp_init() {
     lsp_context *c = lsp_context_create();
     lsp_context_push_env(c, lsp_env_create(
-                                lsp_read("(+ - * t nil)", c),
-                                lsp_read("(+ - * t ())", c),
-                                c));
+                             lsp_read("(+ - * t nil)", c),
+                             lsp_read("(+ - * t ())", c),
+                             c));
     return c;
 }
 
@@ -351,7 +351,7 @@ lsp_obj * lsp_obj_copy(lsp_obj *o, lsp_context *ctx) {
 }
 
 lsp_obj * lsp_obj_cons(lsp_obj *car, lsp_obj *cdr,
-                             lsp_context *ctx) {
+                       lsp_context *ctx) {
     lsp_obj *o = lsp_obj_alloc(ctx);
 
     o->type = CONS;
@@ -362,7 +362,7 @@ lsp_obj * lsp_obj_cons(lsp_obj *car, lsp_obj *cdr,
 }
 
 lsp_obj * lsp_env_create(lsp_obj *names, lsp_obj *values,
-                               lsp_context *ctx) {
+                         lsp_context *ctx) {
     lsp_obj *o = lsp_obj_alloc(ctx);
 
     o->type = ENV;
@@ -374,13 +374,13 @@ lsp_obj * lsp_env_create(lsp_obj *names, lsp_obj *values,
 }
 
 void lsp_env_add(lsp_env *env, lsp_obj *name, lsp_obj *value,
-                    lsp_context *ctx) {
+                 lsp_context *ctx) {
     env->names = lsp_obj_cons(name, env->names, ctx);
     env->values = lsp_obj_cons(value, env->values, ctx);
 }
 
 lsp_obj * lsp_env_lookup(lsp_obj *env, lsp_obj *name,
-                               lsp_context *ctx) {
+                         lsp_context *ctx) {
     if (lsp_obj_is_nil(env)) {
         TRACE("Lookup failed for: %s", lsp_obj_as_string(name));
         return lsp_obj_nil();
@@ -464,7 +464,7 @@ bool lsp_is_digit(char c) {
 }
 
 lsp_obj * lsp_read_num(char *txt, char **next,
-                             lsp_context *ctx) {
+                       lsp_context *ctx) {
     const long int num = strtol(txt, next, 10);
     return lsp_obj_num(num, ctx);
 }
@@ -477,7 +477,7 @@ char * lsp_make_string(const char *data, int len) {
 }
 
 lsp_obj * lsp_read_symbol(char *txt, char **next,
-                                lsp_context *ctx) {
+                          lsp_context *ctx) {
     size_t span = strcspn(txt, " )");
 
     /* FIXME: Memory leak */
@@ -491,7 +491,7 @@ lsp_obj * lsp_read_symbol(char *txt, char **next,
 }
 
 lsp_obj * lsp_read_string(char *txt, char **next,
-                                lsp_context *ctx) {
+                          lsp_context *ctx) {
     txt++;
     size_t span = strcspn(txt, "\"");
     char *s = lsp_make_string(txt, span);
@@ -504,7 +504,7 @@ lsp_obj * lsp_read_string(char *txt, char **next,
 }
 
 lsp_obj * lsp_read_list_inner(char *txt, char **next,
-                                    lsp_context *ctx) {
+                              lsp_context *ctx) {
     lsp_obj *car = lsp_read_obj(txt, next, ctx);
     txt = lsp_eat_space(*next);
     
@@ -521,7 +521,7 @@ lsp_obj * lsp_read_list_inner(char *txt, char **next,
 }
 
 lsp_obj * lsp_read_list(char *txt, char **next,
-                              lsp_context *ctx) {
+                        lsp_context *ctx) {
     txt++;
     txt = lsp_eat_space(txt);
 
@@ -545,7 +545,7 @@ lsp_obj * lsp_read_quote(char *txt, char **next, lsp_context *ctx) {
 }
 
 lsp_obj * lsp_read_obj(char *txt, char **next,
-                             lsp_context *ctx) {
+                       lsp_context *ctx) {
     CHECK(*next != NULL);
     
     txt = lsp_eat_space(txt);
@@ -736,8 +736,8 @@ lsp_obj * lsp_eval_seq(lsp_obj *seq, lsp_context *ctx) {
         return lsp_obj_nil();
     } else {
         return lsp_obj_cons(lsp_eval(lsp_car(seq), ctx),
-                               lsp_eval_seq(lsp_cdr(seq), ctx),
-                               ctx);
+                            lsp_eval_seq(lsp_cdr(seq), ctx),
+                            ctx);
     }
 }
 
@@ -746,7 +746,7 @@ bool lsp_is_true(lsp_obj *value) {
 }
 
 lsp_obj * lsp_if(lsp_obj *args,
-                       lsp_context *ctx) {
+                 lsp_context *ctx) {
     lsp_obj *pred = lsp_eval(lsp_car(args), ctx);
     
     lsp_obj *then_clause = lsp_car(lsp_cdr(args));
@@ -774,7 +774,7 @@ void lsp_eval_bindings(lsp_obj *bindings, lsp_context *ctx) {
         lsp_obj *value = lsp_eval(
             lsp_car(lsp_cdr(lsp_car(cur))), ctx);
         lsp_env_add(&(lsp_car(ctx->env_top)->value.env),
-                       name, value, ctx);
+                    name, value, ctx);
 
         cur = lsp_cdr(cur);
     }
@@ -783,10 +783,10 @@ void lsp_eval_bindings(lsp_obj *bindings, lsp_context *ctx) {
 
 void lsp_context_push_env(lsp_context *ctx, lsp_obj *env) {
     ctx->env_top = lsp_obj_cons((env ?
-                                    env :
-                                    lsp_env_create(NULL, NULL, ctx)),
-                                   ctx->env_top,
-                                   ctx);
+                                 env :
+                                 lsp_env_create(NULL, NULL, ctx)),
+                                ctx->env_top,
+                                ctx);
 }
 
 void lsp_context_pop_env(lsp_context *ctx) {
@@ -806,14 +806,14 @@ lsp_obj * lsp_eval_body(lsp_obj *b, lsp_context *ctx) {
 }
 
 lsp_obj * lsp_apply(lsp_obj *proc, lsp_obj * args,
-                          lsp_context *ctx) {
+                    lsp_context *ctx) {
     lsp_obj *res = NULL;
     
     if (proc->type == LAMBDA) {
         lsp_context_push_env(ctx,
-                                lsp_env_create(proc->value.lambda.args,
-                                                  args,
-                                                  ctx));
+                             lsp_env_create(proc->value.lambda.args,
+                                            args,
+                                            ctx));
         res = lsp_eval_body(proc->value.lambda.body, ctx);
         lsp_context_pop_env(ctx);
     } else {
@@ -837,7 +837,7 @@ lsp_obj * lsp_let(lsp_obj *args, lsp_context *ctx) {
 }
 
 lsp_obj * lsp_set(lsp_obj *name, lsp_obj *value,
-                        lsp_context *ctx) {
+                  lsp_context *ctx) {
     lsp_env_add(&lsp_car(ctx->env_top)->value.env, name, value, ctx);
     return value;
 }

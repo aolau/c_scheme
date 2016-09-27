@@ -18,7 +18,7 @@ vpath %.c $(SRC_DIR)
 vpath %.h $(INC_DIR)
 
 CPPFLAGS = -I$(INC_DIR)
-CFLAGS = -O2 -ggdb -std=c99
+CFLAGS = -ggdb -std=c99
 
 .PHONY: all
 all: $(REPL) $(PROG) $(TEST) TAGS
@@ -54,4 +54,4 @@ check: run_tests
 
 .PHONY: clean
 clean:
-	rm -f $(REPL) $(PROG) $(TEST) $(PROG_OBJ) $(TEST_OBJ) TAGS
+	rm -f $(REPL) $(PROG) $(TEST) $(REPL_OBJ) $(PROG_OBJ) $(TEST_OBJ) TAGS
